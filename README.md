@@ -87,6 +87,23 @@ Extras: chat with unread badge, emoji reactions, mute a remote screen's audio,
 picture-in-picture, fullscreen, avatars (click yours to upload a photo), and a
 per-person connection status.
 
+## Keeping it smooth
+
+Screen share is tuned for interactive use rather than "looks great in a recording":
+
+- Captured at **30 fps**, with the encoder told to protect text (`contentHint = "detail"`).
+- Bitrate is capped by the captured resolution (≈3 Mbps at 720p, 5.5 at 1080p,
+  8.5 at 1440p, 14 at 4K) so the encoder can't overshoot a home uplink and build a
+  laggy queue. Congestion control still adapts underneath that ceiling.
+- When bandwidth dips, frames are dropped before resolution
+  (`degradationPreference = "maintain-resolution"`), so text stays readable.
+- The receiver uses a ~100 ms jitter buffer, not the browser's larger default.
+- With 3+ viewers the uplink budget is split across peers automatically.
+- Blur effects behind the live video are flattened in-call to keep compositing cheap.
+- A dropped connection is given 3 s to heal, then ICE is restarted automatically.
+
+Pick **Settings → Video quality → 720p** on a slow uplink; it is the single biggest lever.
+
 ## Why it doesn't need a server
 
 - **Signalling** — just the initial "hello, here's my address" handshake — goes through the

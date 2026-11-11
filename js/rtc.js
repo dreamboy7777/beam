@@ -81,11 +81,13 @@
     this.peers = new Map();
     this.peer = null;
     this.localStream = null;
+    this.quality = "1080";
     this.startedAt = 0;
     this.destroyed = false;
     this.status = "idle";
 
     this._hostTimer = null;
+    this._retuneTimer = null;
   }
   Mesh.prototype = Object.create(Emitter.prototype);
   Mesh.prototype.constructor = Mesh;
@@ -200,6 +202,7 @@
     if (this.destroyed) return;
     this.destroyed = true;
     clearTimeout(this._hostTimer);
+    clearTimeout(this._retuneTimer);
 
     if (this.localStream) {
       this.localStream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
@@ -446,6 +449,68 @@
 
   /* ── media ───────────────────────────────────────────── */
 
+  // Bitrate ceilings by resolution. The browser still adapts below these, but
+  // an explicit cap stops the encoder from overshooting a home uplink — that
+  // overshoot is what builds a queue and makes a screen share feel seconds
+  // behind. Screen content also needs far less bitrate than camera video.
+  var SCREEN_BITRATE = { "720": 3000000, "1080": 5500000, "1440": 8500000, "native": 14000000 };
+
+  function screenBitrate(track, quality, viewers) {
+    var s = {};
+    try { if (track && track.getSettings) s = track.getSettings(); } catch (e) {}
+    var h = s.height || 0;
+    // Trust the captured size over the requested preset (Retina and 4K
+    // displays often ignore an exact height constraint).
+    var base;
+    if (h >= 1900) base = 14000000;
+    else if (h >= 1300) base = 8500000;
+    else if (h >= 900) base = 5500000;
+    else if (h >= 700) base = 3200000;
+    else if (h) base = 2000000;
+    else base = SCREEN_BITRATE[quality] || SCREEN_BITRATE["1080"];
+    // Mesh: every viewer is a separate upload, so split the uplink budget.
+    var n = Math.max(1, viewers || 1);
+    if (n > 1) base = Math.max(Math.round(base / n), 1200000);
+    return Math.round(base);
+  }
+
+  function setSenderBitrate(sender, bitrate, attempt) {
+    if (!sender || !sender.track || sender.track.readyState !== "live") return;
+    var rate = typeof bitrate === "function" ? bitrate() : bitrate;
+    var params;
+    try { params = sender.getParameters(); } catch (e) { return; }
+    if (!params.encodings || !params.encodings.length) {
+      // Encodings only exist after the first offer/answer settles.
+      if ((attempt || 0) < 8) {
+        setTimeout(function () { setSenderBitrate(sender, bitrate, (attempt || 0) + 1); }, 350);
+      }
+      return;
+    }
+    params.encodings.forEach(function (enc) {
+      enc.maxBitrate = rate;
+      enc.maxFramerate = 30;
+    });
+    // Keep text legible when bandwidth dips: drop frames, not resolution.
+    try { params.degradationPreference = "maintain-resolution"; } catch (e) {}
+    sender.setParameters(params).catch(function () {
+      // Older engines reject maxFramerate/degradationPreference.
+      var minimal;
+      try { minimal = sender.getParameters(); } catch (e) { return; }
+      if (!minimal.encodings || !minimal.encodings.length) return;
+      minimal.encodings.forEach(function (enc) { enc.maxBitrate = rate; });
+      try { minimal.degradationPreference = "balanced"; } catch (e) {}
+      sender.setParameters(minimal).catch(function () {});
+    });
+  }
+
+  function tuneReceiver(receiver) {
+    if (!receiver || !receiver.track || receiver.track.kind !== "video") return;
+    // ~100 ms of jitter buffer: enough to hide network jitter without the
+    // chunk of latency browsers otherwise leave on the table.
+    try { receiver.jitterBufferTarget = 100; } catch (e) {}
+    try { receiver.playoutDelayHint = 0.1; } catch (e) {}
+  }
+
   Mesh.prototype.startShare = function (opts) {
     var self = this;
     opts = opts || {};
@@ -458,7 +523,10 @@
     }
 
     var quality = opts.quality;
-    var video = { frameRate: { ideal: 30, max: 60 }, cursor: "motion" };
+    self.quality = quality || self.quality || "1080";
+    // 30 fps is the sweet spot for screens: smoother motion costs bitrate and
+    // CPU but doesn't make text any clearer.
+    var video = { frameRate: { ideal: 30, max: 30 }, cursor: "motion" };
     if (quality && quality !== "native") {
       var h = Number(quality) || 1080;
       video.height = { ideal: h };
@@ -497,6 +565,9 @@
 
       var videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
+        // "detail" tells the encoder to protect sharp edges and text rather
+        // than smearing frames together for motion.
+        try { videoTrack.contentHint = "detail"; } catch (e) {}
         videoTrack.addEventListener("ended", function () {
           if (self.localStream === stream) self.stopShare();
         });
@@ -533,6 +604,55 @@
     });
 
     this.watchConnection(call, link);
+    var mesh = this;
+    var track = this.localStream.getVideoTracks()[0];
+    this.tuneConnection(call, function () {
+      return screenBitrate(track, mesh.quality, mesh.peers.size);
+    });
+    this.retuneOutgoing();
+  };
+
+  /** Apply screen-share encodings to one peer connection. */
+  Mesh.prototype.tuneConnection = function (call, bitrate) {
+    var self = this;
+    var pc = call && call.peerConnection;
+    if (!pc) return;
+
+    function apply() {
+      if (self.destroyed) return;
+      try {
+        if (pc.connectionState === "closed" || pc.signalingState === "closed") return;
+      } catch (e) {}
+
+      var track = self.localStream && self.localStream.getVideoTracks()[0];
+      if (track) {
+        try { track.contentHint = "detail"; } catch (e) {}
+      }
+      var rate = typeof bitrate === "function" ? bitrate() : bitrate;
+      (pc.getSenders ? pc.getSenders() : []).forEach(function (sender) {
+        if (rate > 0 && sender.track && sender.track.kind === "video") setSenderBitrate(sender, bitrate);
+      });
+      (pc.getReceivers ? pc.getReceivers() : []).forEach(tuneReceiver);
+    }
+
+    apply();
+    // Sender encodings can appear a beat after the offer/answer settles.
+    [600, 1600, 3200].forEach(function (ms) { setTimeout(apply, ms); });
+  };
+
+  /** Re-split the uplink budget when the number of viewers changes. */
+  Mesh.prototype.retuneOutgoing = function () {
+    if (!this.localStream) return;
+    var self = this;
+    clearTimeout(this._retuneTimer);
+    this._retuneTimer = setTimeout(function () {
+      if (self.destroyed || !self.localStream) return;
+      var track = self.localStream.getVideoTracks()[0];
+      var rate = function () { return screenBitrate(track, self.quality, self.peers.size); };
+      self.peers.forEach(function (link) {
+        if (link.outCall) self.tuneConnection(link.outCall, rate);
+      });
+    }, 400);
   };
 
   Mesh.prototype.acceptCall = function (call) {
@@ -572,6 +692,7 @@
     });
 
     this.watchConnection(call, link);
+    this.tuneConnection(call, 0);
   };
 
   Mesh.prototype.watchConnection = function (call, link) {
@@ -579,6 +700,7 @@
     if (!pc) return;
     var self = this;
     var warned = false;
+    var discTimer = null;
     pc.addEventListener("iceconnectionstatechange", function () {
       if (self.destroyed) return;
       var state = pc.iceConnectionState;
@@ -588,7 +710,21 @@
           warned = true;
           self.emit("unstable", link);
         }
+      } else if (state === "disconnected") {
+        // "disconnected" often heals itself within a few seconds (wifi blip,
+        // route change). Give it a moment before forcing an ICE restart.
+        clearTimeout(discTimer);
+        discTimer = setTimeout(function () {
+          if (pc.iceConnectionState !== "disconnected") return;
+          try { pc.restartIce(); } catch (e) {}
+          if (!warned) {
+            warned = true;
+            self.emit("unstable", link);
+          }
+        }, 3000);
       } else if (state === "connected" || state === "completed") {
+        clearTimeout(discTimer);
+        discTimer = null;
         warned = false;
       }
     });
@@ -597,6 +733,7 @@
   Mesh.prototype.stopShare = function () {
     var stream = this.localStream;
     this.localStream = null;
+    clearTimeout(this._retuneTimer);
 
     if (stream) {
       stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
@@ -650,6 +787,7 @@
     link.stream = null;
 
     this.emit("peer-remove", link);
+    this.retuneOutgoing();
   };
 
   /* ── errors ──────────────────────────────────────────── */
