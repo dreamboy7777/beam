@@ -42,6 +42,10 @@ git push
 GitHub rebuilds <https://dreamboy7777.github.io/beam/> in about a minute.
 (No build step — Pages serves these files as-is; `.nojekyll` keeps Jekyll out of the way.)
 
+If you changed CSS or JS, also bump the `?v=2` query on the asset links in `index.html`
+(use `v=3`, `v=4`, …). Pages caches assets for 10 minutes; bumping the version makes
+returning visitors pick up your change immediately.
+
 ### Deploying somewhere else
 
 The app is 100% static files — no backend, no build step.
