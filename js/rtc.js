@@ -1,0 +1,715 @@
+/* Beam — WebRTC mesh over PeerJS.
+ *
+ * Topology: everyone keeps a data channel for presence, chat and reactions.
+ * Screen video travels on its own one-way media connection per direction, so
+ * there is never a renegotiation step to get wrong: if A shares, A calls B.
+ *
+ *   A  ──data──►  B          (chat, presence, roster)
+ *   A  ──media──► B          (A's screen)
+ *   B  ──media──► A          (B's screen, only while B is sharing)
+ */
+(function (global) {
+  "use strict";
+
+  var ICE = {
+    iceServers: [
+      { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
+      { urls: ["stun:stun.cloudflare.com:3478"] },
+      {
+        urls: [
+          "turn:openrelay.metered.ca:80",
+          "turn:openrelay.metered.ca:443",
+          "turn:openrelay.metered.ca:443?transport=tcp"
+        ],
+        username: "openrelayproject",
+        credential: "openrelayproject"
+      }
+    ]
+  };
+
+  var PREFIX_HOST = "beamk";
+  var PREFIX_GUEST = "beamg";
+
+  function Emitter() {
+    this._events = {};
+  }
+  Emitter.prototype.on = function (evt, fn) {
+    (this._events[evt] || (this._events[evt] = [])).push(fn);
+    return this;
+  };
+  Emitter.prototype.off = function (evt, fn) {
+    var list = this._events[evt];
+    if (!list) return this;
+    this._events[evt] = list.filter(function (f) { return f !== fn; });
+    return this;
+  };
+  Emitter.prototype.emit = function (evt) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    var list = this._events[evt];
+    if (list) {
+      list.slice().forEach(function (fn) {
+        try { fn.apply(null, args); } catch (e) { console.error("[beam] listener error:", e); }
+      });
+    }
+    var any = this._events["*"];
+    if (any) {
+      any.slice().forEach(function (fn) {
+        try { fn.apply(null, [evt].concat(args)); } catch (e) { console.error("[beam] listener error:", e); }
+      });
+    }
+    return this;
+  };
+
+  function slug(name) {
+    return String(name || "")
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/g, "");
+  }
+
+  function Mesh(opts) {
+    Emitter.call(this);
+    opts = opts || {};
+
+    this.role = opts.role === "guest" ? "guest" : "host";
+    this.me = opts.me || { name: "Someone", hue: 0, avatar: null };
+    this.hostName = opts.hostName || "";
+    this.signal = opts.signal || null;
+    this.hostId = this.role === "guest" ? PREFIX_HOST + slug(this.hostName) : null;
+
+    this.peers = new Map();
+    this.peer = null;
+    this.localStream = null;
+    this.startedAt = 0;
+    this.destroyed = false;
+    this.status = "idle";
+
+    this._hostTimer = null;
+  }
+  Mesh.prototype = Object.create(Emitter.prototype);
+  Mesh.prototype.constructor = Mesh;
+
+  Mesh.PREFIX = { host: PREFIX_HOST, guest: PREFIX_GUEST };
+  Mesh.slug = slug;
+
+  Mesh.hostIdFor = function (name) {
+    var s = slug(name);
+    return s ? PREFIX_HOST + s : null;
+  };
+
+  Mesh.guestIdFor = function (name) {
+    var s = slug(name) || "guest";
+    return PREFIX_GUEST + s.slice(0, 14) + Math.random().toString(36).slice(2, 6);
+  };
+
+  /* ── lifecycle ───────────────────────────────────────── */
+
+  Mesh.prototype.start = function () {
+    var self = this;
+
+    if (typeof global.Peer !== "function") {
+      this.emit("fatal", { code: "no-library", message: "The connection library didn't load. Check your internet connection and reload." });
+      return;
+    }
+
+    var myId = this.role === "host"
+      ? Mesh.hostIdFor(this.me.name)
+      : Mesh.guestIdFor(this.me.name);
+
+    if (!myId) {
+      this.emit("fatal", { code: "bad-name", message: "Use at least two letters or numbers in your name." });
+      return;
+    }
+
+    this.id = myId;
+    this.setStatus("connecting");
+
+    var options = {
+      debug: 1,
+      config: ICE,
+      pingInterval: 5000
+    };
+    if (this.signal && this.signal.host) {
+      options.host = this.signal.host;
+      options.secure = this.signal.secure !== false;
+      if (this.signal.port) options.port = Number(this.signal.port);
+      if (this.signal.path) options.path = this.signal.path;
+      if (this.signal.key) options.key = this.signal.key;
+    }
+
+    var peer;
+    try {
+      peer = new global.Peer(myId, options);
+    } catch (e) {
+      this.emit("fatal", { code: "no-library", message: "Could not start the connection." });
+      return;
+    }
+    this.peer = peer;
+
+    peer.on("open", function (id) {
+      if (self.destroyed) return;
+      self.id = id;
+      self.startedAt = Date.now();
+      self.emit("open", id);
+      self._idRetries = 0;
+      if (self.role === "host") self.setStatus("live");
+      if (self.role === "guest") self.connect(self.hostId);
+      if (self.role === "guest") {
+        self._hostTimer = setTimeout(function () {
+          if (self.destroyed || self.status === "live") return;
+          var hostLink = self.peers.get(self.hostId);
+          if (!hostLink || !hostLink.open) {
+            self.emit("fatal", {
+              code: "unreachable",
+              message: "Couldn't reach @" + self.hostName + ". Ask them to keep their Beam tab open, then try again."
+            });
+          }
+        }, 20000);
+      }
+    });
+
+    peer.on("connection", function (conn) { self.acceptConn(conn); });
+    peer.on("call", function (call) { self.acceptCall(call); });
+
+    peer.on("error", function (err) { self.handleError(err); });
+
+    peer.on("disconnected", function () {
+      if (self.destroyed) return;
+      self.setStatus("reconnecting");
+      setTimeout(function () {
+        if (self.destroyed || !self.peer || self.peer.destroyed) return;
+        try { self.peer.reconnect(); } catch (e) { /* ignore */ }
+      }, 1200);
+    });
+
+    peer.on("close", function () {
+      if (self.destroyed) return;
+      self.setStatus("offline");
+      self.emit("closed");
+    });
+  };
+
+  Mesh.prototype.setStatus = function (status) {
+    if (this.status === status) return;
+    this.status = status;
+    this.emit("status", status);
+  };
+
+  Mesh.prototype.destroy = function () {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    clearTimeout(this._hostTimer);
+
+    if (this.localStream) {
+      this.localStream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+      this.localStream = null;
+    }
+
+    var self = this;
+    Array.from(this.peers.values()).forEach(function (link) { self.dropLink(link); });
+    this.peers.clear();
+
+    if (this.peer) {
+      try { this.peer.destroy(); } catch (e) { /* ignore */ }
+      this.peer = null;
+    }
+  };
+
+  /** Recreate the signalling socket without losing our identity. */
+  Mesh.prototype.reopen = function () {
+    if (this.destroyed) return;
+    var self = this;
+    Array.from(this.peers.values()).forEach(function (link) { self.dropLink(link); });
+    this.peers.clear();
+    if (this.peer) {
+      try { this.peer.destroy(); } catch (e) {}
+      this.peer = null;
+    }
+    this.start();
+  };
+
+  /* ── data channels ───────────────────────────────────── */
+
+
+  Mesh.prototype.connect = function (peerId) {
+    if (this.destroyed || !this.peer || !peerId || peerId === this.id) return null;
+
+    var existing = this.peers.get(peerId);
+    if (existing && existing.conn && !existing.conn.closed) return existing;
+
+    var link = this.ensureLink(peerId);
+    var conn;
+    try {
+      conn = this.peer.connect(peerId, {
+        metadata: { profile: this.me },
+        reliable: true,
+        serialization: "json"
+      });
+    } catch (e) {
+      this.emit("error", e);
+      return null;
+    }
+    if (!conn) return null;
+
+    link.conn = conn;
+    this.wireConn(link, conn);
+    return link;
+  };
+
+  Mesh.prototype.acceptConn = function (conn) {
+    if (this.destroyed || !conn) return;
+
+    var existing = this.peers.get(conn.peer);
+    if (existing && existing.conn && !existing.conn.closed) {
+      // Duplicate handshake (both sides opened at once) — keep the first one.
+      try { conn.close(); } catch (e) {}
+      return;
+    }
+
+    var profile = conn.metadata && conn.metadata.profile ? conn.metadata.profile : null;
+    var link = this.ensureLink(conn.peer, profile);
+    link.conn = conn;
+    this.wireConn(link, conn);
+  };
+
+  Mesh.prototype.ensureLink = function (peerId, profile) {
+    var link = this.peers.get(peerId);
+    if (link) {
+      if (profile && profile.name) link.profile = Object.assign({}, link.profile, profile);
+      return link;
+    }
+    link = {
+      id: peerId,
+      profile: profile && profile.name ? Object.assign({ name: "Guest", hue: 0, avatar: null }, profile) : { name: "Guest", hue: 0, avatar: null },
+      conn: null,
+      open: false,
+      inCall: null,
+      outCall: null,
+      stream: null,
+      rtt: null,
+      pingTimer: null
+    };
+    this.peers.set(peerId, link);
+    this.emit("peer-add", link);
+    return link;
+  };
+
+  Mesh.prototype.wireConn = function (link, conn) {
+    if (!conn || conn.__beamWired) return;
+    conn.__beamWired = true;
+    var self = this;
+
+    conn.on("open", function () {
+      if (self.destroyed) return;
+      link.open = true;
+      clearTimeout(self._hostTimer);
+
+      self.send(link, { t: "profile", profile: self.me });
+
+      if (self.role === "host") self.sendRoster();
+      if (self.localStream) self.callPeer(link);
+
+      self.emit("peer-ready", link);
+
+      if (self.role === "guest" && link.id === self.hostId) {
+        self.setStatus("live");
+      }
+
+      clearInterval(link.pingTimer);
+      link.pingTimer = setInterval(function () {
+        if (self.destroyed || !link.open) return;
+        self.send(link, { t: "ping", at: Date.now() });
+      }, 6000);
+      self.send(link, { t: "ping", at: Date.now() });
+    });
+
+    conn.on("data", function (data) { self.onMessage(link, data); });
+
+    conn.on("close", function () {
+      if (self.destroyed) return;
+      if (self.role === "guest" && link.id === self.hostId) {
+        self.emit("host-lost");
+      }
+      self.dropLink(link);
+    });
+
+    conn.on("error", function (err) {
+      console.warn("[beam] data error", err && err.type);
+    });
+  };
+
+  Mesh.prototype.onMessage = function (link, msg) {
+    if (!msg || typeof msg !== "object") return;
+
+    switch (msg.t) {
+      case "profile":
+        if (msg.profile && msg.profile.name) {
+          link.profile = Object.assign({}, link.profile, msg.profile);
+          this.emit("peer-update", link);
+        }
+        break;
+
+      case "chat":
+        if (typeof msg.text === "string" && msg.text.trim()) {
+          this.emit("chat", {
+            id: link.id,
+            profile: link.profile,
+            text: String(msg.text).slice(0, 2000),
+            at: msg.at || Date.now(),
+            mine: false
+          });
+        }
+        break;
+
+      case "reaction":
+        if (typeof msg.emoji === "string") {
+          this.emit("reaction", { id: link.id, profile: link.profile, emoji: msg.emoji.slice(0, 8) });
+        }
+        break;
+
+      case "roster":
+        this.onRoster(msg.peers);
+        break;
+
+      case "ping":
+        this.send(link, { t: "pong", at: msg.at });
+        break;
+
+      case "pong":
+        link.rtt = Math.max(0, Date.now() - Number(msg.at || Date.now()));
+        this.emit("peer-update", link);
+        break;
+
+      case "bye":
+        this.dropLink(link);
+        break;
+    }
+  };
+
+  Mesh.prototype.send = function (link, msg) {
+    if (!link || !link.conn) return false;
+    try {
+      if (!link.conn.open) return false;
+      link.conn.send(msg);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  Mesh.prototype.broadcast = function (msg, exceptId) {
+    var self = this;
+    this.peers.forEach(function (link) {
+      if (exceptId && link.id === exceptId) return;
+      self.send(link, msg);
+    });
+  };
+
+  /* ── roster / mesh-building ──────────────────────────── */
+
+  Mesh.prototype.sendRoster = function () {
+    if (this.role !== "host" || this.destroyed) return;
+    var self = this;
+    var list = [{ id: this.id, profile: this.me, host: true }];
+    this.peers.forEach(function (link) {
+      if (link.open) list.push({ id: link.id, profile: link.profile, host: false });
+    });
+    var payload = { t: "roster", peers: list };
+    this.peers.forEach(function (link) {
+      if (link.open) self.send(link, payload);
+    });
+  };
+
+  Mesh.prototype.onRoster = function (peers) {
+    if (!Array.isArray(peers) || this.destroyed) return;
+    var self = this;
+
+    peers.forEach(function (entry) {
+      if (!entry || !entry.id || entry.id === self.id) return;
+      var existing = self.peers.get(entry.id);
+      if (existing) {
+        if (entry.profile && entry.profile.name) {
+          existing.profile = Object.assign({}, existing.profile, entry.profile);
+          self.emit("peer-update", existing);
+        }
+        return;
+      }
+      if (self.role === "host") return; // the host never dials out
+      // Deterministic: only the peer with the smaller id dials, so a pair
+      // can never open two data channels at each other.
+      if (self.id < entry.id) {
+        self.connect(entry.id);
+      }
+    });
+  };
+
+  /* ── media ───────────────────────────────────────────── */
+
+  Mesh.prototype.startShare = function (opts) {
+    var self = this;
+    opts = opts || {};
+
+    if (this.localStream) return Promise.resolve(this.localStream);
+    if (!global.navigator.mediaDevices || !global.navigator.mediaDevices.getDisplayMedia) {
+      var err = new Error("Screen sharing isn't supported in this browser.");
+      err.code = "unsupported";
+      return Promise.reject(err);
+    }
+
+    var quality = opts.quality;
+    var video = { frameRate: { ideal: 30, max: 60 }, cursor: "motion" };
+    if (quality && quality !== "native") {
+      var h = Number(quality) || 1080;
+      video.height = { ideal: h };
+      video.width = { ideal: Math.round((h * 16) / 9) };
+    }
+    var constraints = {
+      video: video,
+      audio: opts.audio
+        ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+        : false,
+      // Chromium picker hints. These are ignored by browsers that don't know
+      // them, and they keep the dialog at parity with Discord: every screen,
+      // app window and tab is offered, plus system/tab audio and "share this
+      // tab instead" switching.
+      monitorTypeSurfaces: "include",
+      selfBrowserSurface: "exclude",
+      surfaceSwitching: "include",
+      systemAudio: opts.audio ? "include" : "exclude",
+      preferCurrentTab: false
+    };
+
+    return navigator.mediaDevices.getDisplayMedia(constraints).catch(function (e) {
+      // Some platforms reject the audio constraint instead of ignoring it.
+      if (constraints.audio && (e && (e.name === "NotSupportedError" || e.name === "TypeError"))) {
+        return navigator.mediaDevices.getDisplayMedia(
+          Object.assign({}, constraints, { audio: false, systemAudio: "exclude" })
+        );
+      }
+      throw e;
+    }).then(function (stream) {
+      if (self.destroyed) {
+        stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+        return null;
+      }
+      self.localStream = stream;
+
+      var videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.addEventListener("ended", function () {
+          if (self.localStream === stream) self.stopShare();
+        });
+      }
+
+      self.peers.forEach(function (link) { self.callPeer(link); });
+      self.emit("share-start", stream);
+      return stream;
+    });
+  };
+
+  Mesh.prototype.callPeer = function (link) {
+    if (!this.localStream || !this.peer || this.destroyed) return;
+    if (!link || !link.open) return;
+    if (link.outCall) return;
+
+    var call;
+    try {
+      call = this.peer.call(link.id, this.localStream, { metadata: { profile: this.me } });
+    } catch (e) {
+      return;
+    }
+    if (!call) return;
+
+    link.outCall = call;
+    var self = this;
+
+    call.on("close", function () {
+      if (link.outCall === call) link.outCall = null;
+    });
+    call.on("error", function (err) {
+      if (link.outCall === call) link.outCall = null;
+      console.warn("[beam] media error", err && err.type);
+    });
+
+    this.watchConnection(call, link);
+  };
+
+  Mesh.prototype.acceptCall = function (call) {
+    if (this.destroyed || !call) return;
+
+    var profile = call.metadata && call.metadata.profile ? call.metadata.profile : null;
+    var link = this.ensureLink(call.peer, profile);
+    var self = this;
+
+    if (link.inCall && link.inCall !== call) {
+      try { link.inCall.close(); } catch (e) {}
+    }
+    link.inCall = call;
+
+    // Receive-only: our own screen travels on separate outbound calls.
+    try { call.answer(); } catch (e) { console.warn("[beam] answer failed", e); }
+
+    call.on("stream", function (stream) {
+      link.stream = stream;
+      self.emit("stream", link);
+    });
+
+    call.on("close", function () {
+      if (link.inCall !== call) return;
+      link.inCall = null;
+      link.stream = null;
+      self.emit("stream-end", link);
+    });
+
+    call.on("error", function (err) {
+      console.warn("[beam] incoming media error", err && err.type);
+      if (link.inCall === call) {
+        link.inCall = null;
+        link.stream = null;
+        self.emit("stream-end", link);
+      }
+    });
+
+    this.watchConnection(call, link);
+  };
+
+  Mesh.prototype.watchConnection = function (call, link) {
+    var pc = call.peerConnection;
+    if (!pc) return;
+    var self = this;
+    var warned = false;
+    pc.addEventListener("iceconnectionstatechange", function () {
+      if (self.destroyed) return;
+      var state = pc.iceConnectionState;
+      if (state === "failed") {
+        try { pc.restartIce(); } catch (e) {}
+        if (!warned) {
+          warned = true;
+          self.emit("unstable", link);
+        }
+      } else if (state === "connected" || state === "completed") {
+        warned = false;
+      }
+    });
+  };
+
+  Mesh.prototype.stopShare = function () {
+    var stream = this.localStream;
+    this.localStream = null;
+
+    if (stream) {
+      stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+    }
+
+    this.peers.forEach(function (link) {
+      if (link.outCall) {
+        try { link.outCall.close(); } catch (e) {}
+        link.outCall = null;
+      }
+    });
+
+    this.emit("share-end");
+  };
+
+  Mesh.prototype.isSharing = function () {
+    return !!this.localStream;
+  };
+
+  /* ── chat / reactions ────────────────────────────────── */
+
+  Mesh.prototype.sendChat = function (text) {
+    var clean = String(text || "").trim();
+    if (!clean) return false;
+    return this.broadcast({ t: "chat", text: clean.slice(0, 2000), at: Date.now() });
+  };
+
+  Mesh.prototype.sendReaction = function (emoji) {
+    if (!emoji) return false;
+    var ok = this.broadcast({ t: "reaction", emoji: String(emoji).slice(0, 8), at: Date.now() });
+    this.emit("reaction", { id: this.id, profile: this.me, emoji: emoji, mine: true });
+    return ok;
+  };
+
+  Mesh.prototype.leave = function () {
+    this.broadcast({ t: "bye" });
+  };
+
+  /* ── teardown ────────────────────────────────────────── */
+
+  Mesh.prototype.dropLink = function (link) {
+    if (!link || !this.peers.has(link.id)) return;
+    this.peers.delete(link.id);
+
+    clearInterval(link.pingTimer);
+    link.pingTimer = null;
+
+    if (link.conn) { try { link.conn.close(); } catch (e) {} }
+    if (link.inCall) { try { link.inCall.close(); } catch (e) {} }
+    if (link.outCall) { try { link.outCall.close(); } catch (e) {} }
+    link.stream = null;
+
+    this.emit("peer-remove", link);
+  };
+
+  /* ── errors ──────────────────────────────────────────── */
+
+  Mesh.prototype.handleError = function (err) {
+    var type = err && err.type;
+    var msg = String((err && err.message) || "");
+
+    if (type === "peer-unavailable") {
+      if (this.role === "guest" && this.hostId && msg.indexOf(this.hostId) !== -1) {
+        clearTimeout(this._hostTimer);
+        this.emit("fatal", {
+          code: "not-found",
+          message: "No live session under @" + this.hostName + ". Check the spelling, or ask them to start a session first."
+        });
+      }
+      return;
+    }
+
+    if (type === "unavailable-id") {
+      // The old socket for this id may still be closing (a reload, for
+      // example). Retry a couple of times before giving up.
+      if (this._idRetries < 2) {
+        this._idRetries = (this._idRetries || 0) + 1;
+        this.setStatus("connecting");
+        var self = this;
+        setTimeout(function () { if (!self.destroyed) self.reopen(); }, 1700);
+        return;
+      }
+      this.emit("fatal", {
+        code: "name-taken",
+        message: "“" + this.me.name + "” is already live in another tab or device. Pick a different name."
+      });
+      return;
+    }
+
+    if (type === "browser-incompatible") {
+      this.emit("fatal", {
+        code: "unsupported",
+        message: "This browser can't do WebRTC screen sharing. Try Chrome, Edge, Firefox or Safari."
+      });
+      return;
+    }
+
+    if (type === "network" || type === "server-error" || type === "socket-error" || type === "socket-closed") {
+      this.setStatus("reconnecting");
+      return;
+    }
+
+    if (type === "invalid-id" || type === "invalid-key") {
+      this.emit("fatal", {
+        code: "signal-config",
+        message: "The signalling server rejected this session. Reset the server settings and try again."
+      });
+      return;
+    }
+
+    console.warn("[beam] peer error", type, msg);
+    this.emit("error", { type: type, message: msg });
+  };
+
+  global.Mesh = Mesh;
+})(window);

@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Beam — share your screen in one link</title>
+<meta name="description" content="Beam is a peer-to-peer screen sharing room. Pick a username, send one link, and your friend is watching your screen in seconds. No installs, no accounts." />
+<meta name="theme-color" content="#07070b" />
+<meta property="og:title" content="Beam — share your screen in one link" />
+<meta property="og:description" content="Peer-to-peer screen sharing. No installs, no accounts, no recordings." />
+<meta name="color-scheme" content="dark" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c5cff'/%3E%3Cstop offset='1' stop-color='%234cc9f0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='%230a0a11'/%3E%3Cpath d='M20 26h15a5 5 0 0 1 5 5v11' fill='none' stroke='url(%23g)' stroke-width='5' stroke-linecap='round'/%3E%3Ccircle cx='20' cy='26' r='4' fill='%23ff4d8d'/%3E%3Ccircle cx='40' cy='42' r='4' fill='%234cc9f0'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ══════════════════════ LANDING ══════════════════════ -->
+<div class="landing" id="landing">
+  <div class="aurora" aria-hidden="true">
+    <span class="blob b1"></span>
+    <span class="blob b2"></span>
+    <span class="blob b3"></span>
+    <span class="grid-lines"></span>
+  </div>
+
+  <header class="topnav">
+    <a class="brand" href="./" aria-label="Beam home">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 40 40" fill="none">
+          <rect x="1" y="1" width="38" height="38" rx="12" fill="url(#bm1)" fill-opacity=".14" stroke="url(#bm1)" stroke-opacity=".45"/>
+          <path d="M13 17h8a4 4 0 0 1 4 4v5" stroke="url(#bm1)" stroke-width="3.2" stroke-linecap="round"/>
+          <circle cx="13" cy="17" r="2.6" fill="#ff4d8d"/>
+          <circle cx="25" cy="26" r="2.6" fill="#4cc9f0"/>
+          <defs><linearGradient id="bm1" x1="4" y1="4" x2="36" y2="36"><stop stop-color="#9d7bff"/><stop offset="1" stop-color="#4cc9f0"/></linearGradient></defs>
+        </svg>
+      </span>
+      <span class="brand-name">Beam</span>
+    </a>
+    <div class="topnav-right">
+      <span class="pill"><i class="dot live"></i> Peer-to-peer</span>
+      <a class="link-quiet" href="#how">How it works</a>
+      <button class="icon-btn" id="landingSettingsBtn" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1.1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.01a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="hero">
+    <section class="hero-copy">
+      <h1>Your screen,<br /><em>in their browser.</em></h1>
+      <p class="lede">
+        Start a room, send one link, and your friend is watching your screen in seconds.
+        No installs. No accounts. No recordings — the video goes straight between the two of you.
+      </p>
+
+      <ul class="feats">
+        <li>
+          <span class="fi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="13" rx="2.5"/><path d="M8.5 21h7M12 17.5V21"/></svg>
+          </span>
+          <div><b>True screen share</b><span>Whole screen, a window, or one tab — with tab audio.</span></div>
+        </li>
+        <li>
+          <span class="fi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5"/></svg>
+          </span>
+          <div><b>Both directions</b><span>Your friend can share their screen back at any time.</span></div>
+        </li>
+        <li>
+          <span class="fi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8 4.5 6v6c0 4.6 3.1 7.9 7.5 9.2 4.4-1.3 7.5-4.6 7.5-9.2V6L12 2.8Z"/><path d="m8.8 12.2 2.2 2.2 4.2-4.6"/></svg>
+          </span>
+          <div><b>Encrypted in transit</b><span>WebRTC media is mandated to use DTLS-SRTP. Nothing is stored.</span></div>
+        </li>
+      </ul>
+
+      <div class="steps" id="how">
+        <div class="step"><b>1</b><span>Pick a username</span></div>
+        <div class="step"><b>2</b><span>Send the link</span></div>
+        <div class="step"><b>3</b><span>Click share</span></div>
+      </div>
+    </section>
+
+    <section class="card-wrap">
+      <div class="card" id="setupCard">
+        <div class="card-glow" aria-hidden="true"></div>
+
+        <h2 class="card-title">Start a session</h2>
+        <p class="card-sub">Your username is the room your friend joins.</p>
+
+        <form id="setupForm" novalidate>
+          <div class="profile-row">
+            <button type="button" class="avatar-btn" id="avatarBtn" title="Upload a photo">
+              <span class="ava" id="myAva" aria-hidden="true"></span>
+              <span class="ava-cam">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+              </span>
+            </button>
+            <div class="profile-inputs">
+              <label class="field" for="nameInput">
+                <span class="field-label">Your name</span>
+                <input id="nameInput" name="name" maxlength="24" placeholder="alex" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" />
+              </label>
+              <div class="field-foot">
+                <span class="hint" id="nameHint">Letters and numbers become your room code.</span>
+                <button type="button" class="link-quiet sm" id="shuffleBtn">shuffle color</button>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn primary big" id="startBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="13" rx="2.5"/><path d="M8.5 21h7"/></svg>
+            Start a session
+          </button>
+
+          <div class="or"><span>or join a friend</span></div>
+
+          <div class="join-row">
+            <label class="input-prefix" for="joinInput">
+              <span>@</span>
+              <input id="joinInput" maxlength="24" placeholder="their username" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            </label>
+            <button type="button" class="btn ghost" id="joinBtn">Join</button>
+          </div>
+
+          <p class="micro">By starting a session you agree to be an excellent friend and not screenshare anything cursed.</p>
+        </form>
+      </div>
+
+      <div class="card-tip">
+        <span class="kbd">Tip</span>
+        Send the link, not just your name — it fills in the room for them.
+      </div>
+    </section>
+  </main>
+
+  <footer class="landing-foot">
+    <span>© <span id="year">2026</span> Beam</span>
+    <span class="sep">·</span>
+    <span>Built on WebRTC · runs entirely in your browser</span>
+  </footer>
+</div>
+
+<!-- ══════════════════════ LIVE ══════════════════════ -->
+<div class="app" id="app" hidden>
+  <header class="topbar">
+    <div class="tb-left">
+      <span class="brand-mark sm" aria-hidden="true">
+        <svg viewBox="0 0 40 40" fill="none">
+          <rect x="1" y="1" width="38" height="38" rx="12" fill="url(#bm2)" fill-opacity=".14" stroke="url(#bm2)" stroke-opacity=".45"/>
+          <path d="M13 17h8a4 4 0 0 1 4 4v5" stroke="url(#bm2)" stroke-width="3.2" stroke-linecap="round"/>
+          <circle cx="13" cy="17" r="2.6" fill="#ff4d8d"/>
+          <circle cx="25" cy="26" r="2.6" fill="#4cc9f0"/>
+          <defs><linearGradient id="bm2" x1="4" y1="4" x2="36" y2="36"><stop stop-color="#9d7bff"/><stop offset="1" stop-color="#4cc9f0"/></linearGradient></defs>
+        </svg>
+      </span>
+      <div class="room-chip" id="roomChip">
+        <span class="room-label">Session</span>
+        <strong id="roomName">@you</strong>
+      </div>
+      <button class="btn tiny" id="copyLinkBtn" title="Copy the invite link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.1 0l2.4-2.4a5 5 0 0 0-7.1-7.1L11 4.9"/><path d="M14 11a5 5 0 0 0-7.1 0l-2.4 2.4a5 5 0 0 0 7.1 7.1L13 19.1"/></svg>
+        <span class="copy-label">Copy link</span>
+      </button>
+    </div>
+
+    <div class="tb-right">
+      <div class="people" id="peopleStrip" aria-label="People in this session"></div>
+      <span class="pill status" id="statusPill"><i class="dot live"></i> <span id="statusText">Live</span></span>
+      <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1.1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.01a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/></svg>
+      </button>
+      <button class="btn danger-ghost" id="leaveBtn">Leave</button>
+    </div>
+  </header>
+
+  <main class="stage" id="stage">
+    <div class="grid" id="grid" data-count="1"></div>
+
+    <div class="stage-empty" id="stageEmpty">
+      <div class="se-art" aria-hidden="true">
+        <span class="se-ring r1"></span>
+        <span class="se-ring r2"></span>
+        <span class="se-core">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="13" rx="2.5"/><path d="M8.5 21h7M12 17.5V21"/></svg>
+        </span>
+      </div>
+      <h3 id="emptyTitle">Nobody is sharing yet</h3>
+      <p id="emptyBody">Hit <b>Share my screen</b>, then pick Entire screen, Window or Tab.</p>
+      <div class="se-people" id="emptyPeople"></div>
+    </div>
+
+    <div class="reactions" id="reactions" aria-hidden="true"></div>
+  </main>
+
+  <div class="dock">
+    <div class="dock-inner">
+      <button class="btn share" id="shareBtn" title="Choose Entire screen, Window or Tab in the browser dialog" aria-label="Share my screen">
+        <span class="share-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="13" rx="2.5"/><path d="M8.5 21h7M12 17.5V21"/></svg>
+        </span>
+        <span id="shareLabel">Share my screen</span>
+      </button>
+      <button class="icon-btn dock-btn" id="chatToggle" title="Chat" aria-label="Chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.9-5.2A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4Z"/></svg>
+        <span class="badge" id="chatBadge" hidden>0</span>
+      </button>
+      <button class="icon-btn dock-btn" id="reactBtn" title="Reactions" aria-label="Reactions">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.2a4.3 4.3 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>
+      </button>
+      <button class="icon-btn dock-btn" id="fsBtn" title="Fullscreen" aria-label="Fullscreen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+      </button>
+    </div>
+    <div class="react-bar" id="reactBar" hidden>
+      <button data-emoji="👍" aria-label="thumbs up">👍</button>
+      <button data-emoji="😂" aria-label="laugh">😂</button>
+      <button data-emoji="🔥" aria-label="fire">🔥</button>
+      <button data-emoji="👏" aria-label="clap">👏</button>
+      <button data-emoji="🤯" aria-label="mind blown">🤯</button>
+      <button data-emoji="❤️" aria-label="heart">❤️</button>
+    </div>
+  </div>
+
+  <aside class="chat" id="chatPanel" aria-label="Chat">
+    <header class="chat-head">
+      <div>
+        <strong>Chat</strong>
+        <span class="chat-sub" id="chatSub">Only people in this room</span>
+      </div>
+      <button class="icon-btn sm" id="chatClose" aria-label="Close chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+    <div class="chat-log" id="chatLog" role="log" aria-live="polite"></div>
+    <form class="chat-form" id="chatForm">
+      <input id="chatInput" placeholder="Write a message…" maxlength="600" autocomplete="off" />
+      <button type="submit" class="icon-btn send" aria-label="Send">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2.5 11 13"/><path d="M21.5 2.5 15 21l-4-8-8-4 18.5-6.5Z"/></svg>
+      </button>
+    </form>
+  </aside>
+</div>
+
+<!-- ══════════════════════ OVERLAYS ══════════════════════ -->
+<div class="overlay" id="loadingOverlay" hidden>
+  <div class="loader">
+    <span class="spin"></span>
+    <strong id="loadingTitle">Connecting…</strong>
+    <span id="loadingSub">Finding your friend's room</span>
+    <button class="link-quiet sm" id="loadingCancel" hidden>Cancel</button>
+  </div>
+</div>
+
+<div class="sheet" id="settingsSheet" hidden>
+  <div class="sheet-backdrop" data-close="1"></div>
+  <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <header class="sheet-head">
+      <h2 id="settingsTitle">Settings</h2>
+      <button class="icon-btn sm" data-close="1" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+
+    <div class="sheet-body">
+      <div class="setting">
+        <div><b>Share tab audio</b><span>Capture sound from the tab or screen you share.</span></div>
+        <label class="switch"><input type="checkbox" id="optAudio" checked /><span></span></label>
+      </div>
+
+      <div class="setting">
+        <div><b>Video quality</b><span>Higher looks better and uses more bandwidth.</span></div>
+        <select id="optQuality" class="select">
+          <option value="720">720p — smooth</option>
+          <option value="1080" selected>1080p — balanced</option>
+          <option value="1440">1440p — sharp</option>
+          <option value="native">Native — max</option>
+        </select>
+      </div>
+
+      <div class="setting">
+        <div><b>Motion</b><span>Ambient animation on the landing page.</span></div>
+        <label class="switch"><input type="checkbox" id="optMotion" checked /><span></span></label>
+      </div>
+
+      <details class="advanced">
+        <summary>Signalling server (advanced)</summary>
+        <p class="micro">Leave blank to use the public PeerJS cloud. Point these at your own server if you self-host one.</p>
+        <div class="adv-grid">
+          <label class="field"><span class="field-label">Host</span><input id="optSigHost" placeholder="0.peerjs.com" autocomplete="off" spellcheck="false" /></label>
+          <label class="field"><span class="field-label">Port</span><input id="optSigPort" placeholder="443" inputmode="numeric" autocomplete="off" /></label>
+          <label class="field"><span class="field-label">Path</span><input id="optSigPath" placeholder="/" autocomplete="off" spellcheck="false" /></label>
+          <label class="field"><span class="field-label">Key</span><input id="optSigKey" placeholder="peerjs" autocomplete="off" spellcheck="false" /></label>
+        </div>
+        <button class="link-quiet sm" id="optSigReset">Reset to default</button>
+      </details>
+
+      <div class="sheet-foot">
+        <button class="btn ghost" id="resetAppBtn">Reset everything</button>
+        <span class="micro">Settings save automatically.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<input type="file" id="avatarFile" accept="image/*" hidden />
+
+<script src="vendor/peerjs.min.js"></script>
+<script src="js/util.js"></script>
+<script src="js/rtc.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
