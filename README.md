@@ -4,6 +4,8 @@ Peer-to-peer screen sharing in one link. You start a room, send the link, your f
 types your username (or just clicks the link), and you're looking at each other's screens.
 No accounts, no installs, no server holding your video, nothing recorded.
 
+**Live:** <https://dreamboy7777.github.io/beam/> · **Source:** <https://github.com/dreamboy7777/beam>
+
 ```
 ┌──────────┐        one link        ┌──────────┐
 │  you     │  ───────────────────►  │  friend  │
@@ -24,9 +26,23 @@ Then open **http://localhost:8080** — no `npm install` needed, there are zero 
 
 ## Send it to a friend
 
-A friend can only open a link that's reachable from their computer. Three ways, easiest first:
+The app is already deployed at **<https://dreamboy7777.github.io/beam/>** — that's the link
+to send. A friend can join from any computer or phone with a modern browser.
 
-### 1. Drop it on a static host (recommended)
+### Updating the live site
+
+This folder is a git repo whose `main` branch publishes to GitHub Pages. After editing:
+
+```bash
+git add -A
+git commit -m "Describe the change"
+git push
+```
+
+GitHub rebuilds <https://dreamboy7777.github.io/beam/> in about a minute.
+(No build step — Pages serves these files as-is; `.nojekyll` keeps Jekyll out of the way.)
+
+### Deploying somewhere else
 
 The app is 100% static files — no backend, no build step.
 
@@ -37,7 +53,7 @@ The app is 100% static files — no backend, no build step.
 
 HTTPS is important: browsers only allow screen capture on secure pages.
 
-### 2. Quick tunnel (no account)
+### Quick tunnel (no account)
 
 While `npm start` is running, in another terminal:
 
@@ -48,11 +64,11 @@ npx localtunnel --port 8080
 Send the `https://…loca.lt` URL it prints. Keep both terminals open while you're sharing.
 (If your friend sees a "tunnel password" page, it's your public IP — the page tells you.)
 
-### 3. Same wifi
+### Same wifi
 
 The server prints a `http://192.168.x.x:8080` address. Your friend can *watch* from there,
 but browsers block screen capture on plain http, so **whoever shares** needs https or
-localhost. Use option 1 or 2 for real sharing.
+localhost. Use the deployed link or a tunnel for real sharing.
 
 ## How you use it
 
