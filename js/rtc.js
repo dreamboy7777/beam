@@ -153,7 +153,7 @@
         credential: cred.credential
       });
     }
-    return { iceServers: servers, iceCandidatePoolSize: 4 };
+    return { iceServers: servers };
   }
 
   function Emitter() {
@@ -460,14 +460,17 @@
 
     var existing = this.peers.get(conn.peer);
     if (existing && existing.conn && !existing.conn.closed) {
-      if (existing.open) {
+      var pc = existing.conn.peerConnection;
+      var pcState = pc && pc.connectionState;
+      var dead = pcState === "failed" || pcState === "closed" || pcState === "disconnected";
+      if (existing.open && !dead) {
         // Duplicate handshake (both sides opened at once) — keep the live one.
         try { conn.close(); } catch (e) {}
         return;
       }
-      // A fresh arrival beats a pending attempt that hasn't opened yet: the
-      // old one may be stuck behind a dead NAT path. Swapping it lets the
-      // retry succeed instead of being rejected as a duplicate.
+      // A fresh arrival beats a pending or dying attempt: the old one may be
+      // stuck behind a dead NAT path. Swapping it lets the retry succeed
+      // instead of being rejected as a duplicate.
       try { existing.conn.close(); } catch (e) {}
       existing.conn = null;
     }

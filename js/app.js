@@ -429,7 +429,7 @@
     els.app.hidden = true;
     els.landing.hidden = false;
     els.landing.classList.remove("gone");
-    U.toast(message, "err", "Couldn't connect.", 8000);
+    U.toast(message, "err", "Couldn't connect.", 12000);
   }
 
   function goLive() {
