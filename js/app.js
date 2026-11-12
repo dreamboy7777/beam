@@ -6,7 +6,7 @@
 
   var state = {
     me: { name: "", hue: 0, avatar: null },
-    settings: { audio: true, quality: "1080", motion: true, signal: null },
+    settings: { audio: true, quality: "1080", motion: true, signal: null, turn: null },
     mesh: null,
     role: null,
     hostName: "",
@@ -30,7 +30,8 @@
       "peopleStrip", "roomName", "copyLinkBtn", "settingsBtn", "statusPill", "statusText",
       "leaveBtn", "settingsSheet", "loadingOverlay", "loadingTitle", "loadingSub", "loadingCancel",
       "optAudio", "optQuality", "optMotion", "optSigHost", "optSigPort", "optSigPath", "optSigKey",
-      "optSigReset", "resetAppBtn", "toasts", "landingSettingsBtn"
+      "optSigReset", "optTurnUrls", "optTurnUser", "optTurnPass", "optTurnReset",
+      "resetAppBtn", "toasts", "landingSettingsBtn"
     ].forEach(function (id) { els[id] = document.getElementById(id); });
   }
 
@@ -263,7 +264,8 @@
       role: role,
       me: { name: name, hue: state.me.hue, avatar: state.me.avatar },
       hostName: hostName,
-      signal: state.settings.signal || null
+      signal: state.settings.signal || null,
+      turn: state.settings.turn || null
     });
     state.mesh = mesh;
     bindMesh(mesh);
@@ -284,6 +286,18 @@
     mesh.on("open", function () {
       state.opened = true;
       if (state.role === "host") goLive();
+    });
+
+    mesh.on("dialing", function (info) {
+      if (state.live) return;
+      var attempt = Number(info && info.attempt) || 1;
+      if (attempt <= 1) {
+        els.loadingSub.textContent = "Knocking on their door…";
+      } else if (attempt === 2) {
+        els.loadingSub.textContent = "Still connecting — trying another route…";
+      } else {
+        els.loadingSub.textContent = "Almost there — trying a relay route…";
+      }
     });
 
     mesh.on("peer-add", function (link) {
@@ -1053,6 +1067,10 @@
     els.optSigPort.value = sig.port || "";
     els.optSigPath.value = sig.path || "";
     els.optSigKey.value = sig.key || "";
+    var turn = state.settings.turn || {};
+    els.optTurnUrls.value = Array.isArray(turn.urls) ? turn.urls.join(", ") : (turn.urls || "");
+    els.optTurnUser.value = turn.username || "";
+    els.optTurnPass.value = turn.credential || "";
   }
 
   function collectSettings() {
@@ -1060,7 +1078,8 @@
       audio: els.optAudio.checked,
       quality: els.optQuality.value,
       motion: els.optMotion.checked,
-      signal: null
+      signal: null,
+      turn: null
     };
     var host = els.optSigHost.value.trim();
     if (host) {
@@ -1070,6 +1089,14 @@
         path: els.optSigPath.value.trim() || "/",
         key: els.optSigKey.value.trim() || "peerjs",
         secure: (els.optSigPort.value.trim() || "443") !== "80"
+      };
+    }
+    var turnUrls = els.optTurnUrls.value.trim();
+    if (turnUrls) {
+      settings.turn = {
+        urls: turnUrls.split(/[\s,]+/).filter(Boolean),
+        username: els.optTurnUser.value.trim(),
+        credential: els.optTurnPass.value
       };
     }
     return settings;
@@ -1104,6 +1131,22 @@
       state.settings.signal = null;
       U.store.set("settings", state.settings);
       U.toast("Using the public signalling server.", "ok");
+    });
+
+    [els.optTurnUrls, els.optTurnUser, els.optTurnPass].forEach(function (input) {
+      input.addEventListener("change", function () {
+        save();
+        U.toast("Relay settings saved. They apply next time you start a session.", "", null, 3200);
+      });
+    });
+
+    els.optTurnReset.addEventListener("click", function () {
+      els.optTurnUrls.value = "";
+      els.optTurnUser.value = "";
+      els.optTurnPass.value = "";
+      state.settings.turn = null;
+      U.store.set("settings", state.settings);
+      U.toast("Using the built-in relay.", "ok");
     });
 
     els.resetAppBtn.addEventListener("click", function () {

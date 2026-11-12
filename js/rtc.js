@@ -11,24 +11,150 @@
 (function (global) {
   "use strict";
 
-  var ICE = {
-    iceServers: [
-      { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
-      { urls: ["stun:stun.cloudflare.com:3478"] },
-      {
-        urls: [
-          "turn:openrelay.metered.ca:80",
-          "turn:openrelay.metered.ca:443",
-          "turn:openrelay.metered.ca:443?transport=tcp"
-        ],
-        username: "openrelayproject",
-        credential: "openrelayproject"
-      }
-    ]
-  };
+  var STUN = [
+    { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
+    { urls: ["stun:stun.cloudflare.com:3478"] },
+    { urls: ["stun:global.stun.twilio.com:3478"] }
+  ];
+
+  // The public Open Relay TURN service keeps working for browsers through its
+  // static-auth endpoint: the password is an HMAC of a short-lived username.
+  // The old `openrelayproject` / `openrelayproject` pair is rejected now, so
+  // minting a fresh credential is what makes strict-NAT connections work.
+  var TURN_SECRET = "openrelayprojectsecret";
+  var TURN_TTL = 12 * 60 * 60;
+  var TURN_URLS = [
+    "turn:staticauth.openrelay.metered.ca:80",
+    "turn:staticauth.openrelay.metered.ca:443",
+    "turn:staticauth.openrelay.metered.ca:443?transport=tcp",
+    "turns:staticauth.openrelay.metered.ca:443"
+  ];
+
+  var DIAL_ATTEMPTS = 3;
+  var DIAL_TIMEOUT = 9000;
 
   var PREFIX_HOST = "beamk";
   var PREFIX_GUEST = "beamg";
+
+  /* A compact SHA-1/HMAC used to mint TURN REST credentials synchronously.
+   * Web Crypto is async and we need the ICE config before constructing Peer. */
+  function utf8Bytes(str) {
+    var out = [];
+    for (var i = 0; i < str.length; i++) {
+      var c = str.charCodeAt(i);
+      if (c < 0x80) out.push(c);
+      else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 63));
+      else if (c < 0xd800 || c >= 0xe000) out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+      else {
+        i++;
+        var cp = 0x10000 + (((c & 0x3ff) << 10) | (str.charCodeAt(i) & 0x3ff));
+        out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 63), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63));
+      }
+    }
+    return new Uint8Array(out);
+  }
+
+  function sha1(bytes) {
+    var length = bytes.length;
+    var total = ((length + 9 + 63) >> 6) << 6;
+    var words = new Uint32Array(total >> 2);
+    for (var i = 0; i < length; i++) words[i >> 2] |= bytes[i] << (24 - (i % 4) * 8);
+    words[length >> 2] |= 0x80 << (24 - (length % 4) * 8);
+    words[(total >> 2) - 1] = length * 8;
+
+    var h0 = 0x67452301, h1 = 0xefcdab89, h2 = 0x98badcfe, h3 = 0x10325476, h4 = 0xc3d2e1f0;
+    var w = new Uint32Array(80);
+    for (var j = 0; j < total >> 2; j += 16) {
+      var t;
+      for (t = 0; t < 16; t++) w[t] = words[j + t];
+      for (t = 16; t < 80; t++) {
+        var n = w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16];
+        w[t] = (n << 1) | (n >>> 31);
+      }
+      var a = h0, b = h1, c = h2, d = h3, e = h4;
+      for (t = 0; t < 80; t++) {
+        var f, k;
+        if (t < 20) { f = (b & c) | (~b & d); k = 0x5a827999; }
+        else if (t < 40) { f = b ^ c ^ d; k = 0x6ed9eba1; }
+        else if (t < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8f1bbcdc; }
+        else { f = b ^ c ^ d; k = 0xca62c1d6; }
+        var tmp = (((a << 5) | (a >>> 27)) + f + e + k + w[t]) >>> 0;
+        e = d; d = c; c = ((b << 30) | (b >>> 2)) >>> 0; b = a; a = tmp;
+      }
+      h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0;
+      h3 = (h3 + d) >>> 0; h4 = (h4 + e) >>> 0;
+    }
+
+    var out = new Uint8Array(20);
+    [h0, h1, h2, h3, h4].forEach(function (h, idx) {
+      out[idx * 4] = h >>> 24;
+      out[idx * 4 + 1] = (h >>> 16) & 255;
+      out[idx * 4 + 2] = (h >>> 8) & 255;
+      out[idx * 4 + 3] = h & 255;
+    });
+    return out;
+  }
+
+  function hmacSha1(keyBytes, dataBytes) {
+    var key = keyBytes;
+    if (key.length > 64) key = sha1(key);
+    var block = new Uint8Array(64);
+    block.set(key);
+    var inner = new Uint8Array(64 + dataBytes.length);
+    var outer = new Uint8Array(64 + 20);
+    for (var i = 0; i < 64; i++) {
+      inner[i] = block[i] ^ 0x36;
+      outer[i] = block[i] ^ 0x5c;
+    }
+    inner.set(dataBytes, 64);
+    outer.set(sha1(inner), 64);
+    return sha1(outer);
+  }
+
+  function base64(bytes) {
+    var s = "";
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return global.btoa(s);
+  }
+
+  function turnCredential() {
+    var username = String(Math.floor(Date.now() / 1000) + TURN_TTL) + ":beam";
+    var credential = base64(hmacSha1(utf8Bytes(TURN_SECRET), utf8Bytes(username)));
+    return { username: username, credential: credential };
+  }
+
+  function normalizeTurn(turn) {
+    if (!turn) return null;
+    if (typeof turn === "string") turn = { urls: turn };
+    var urls = turn.urls;
+    if (typeof urls === "string") urls = urls.split(/[\s,]+/);
+    if (!Array.isArray(urls)) return null;
+    urls = urls.map(function (u) { return String(u || "").trim(); }).filter(function (u) {
+      return /^turns?:/i.test(u);
+    });
+    if (!urls.length) return null;
+    return {
+      urls: urls,
+      username: String(turn.username || ""),
+      credential: String(turn.credential || "")
+    };
+  }
+
+  function iceConfig(turn) {
+    var servers = STUN.slice();
+    var custom = normalizeTurn(turn);
+    if (custom) {
+      servers.push(custom);
+    } else {
+      var cred = turnCredential();
+      servers.push({
+        urls: TURN_URLS.slice(),
+        username: cred.username,
+        credential: cred.credential
+      });
+    }
+    return { iceServers: servers, iceCandidatePoolSize: 4 };
+  }
 
   function Emitter() {
     this._events = {};
@@ -76,6 +202,7 @@
     this.me = opts.me || { name: "Someone", hue: 0, avatar: null };
     this.hostName = opts.hostName || "";
     this.signal = opts.signal || null;
+    this.turn = opts.turn || null;
     this.hostId = this.role === "guest" ? PREFIX_HOST + slug(this.hostName) : null;
 
     this.peers = new Map();
@@ -87,6 +214,9 @@
     this.status = "idle";
 
     this._hostTimer = null;
+    this._dialTimer = null;
+    this._dialAttempts = 0;
+    this._sawUnavailable = 0;
     this._retuneTimer = null;
   }
   Mesh.prototype = Object.create(Emitter.prototype);
@@ -94,6 +224,8 @@
 
   Mesh.PREFIX = { host: PREFIX_HOST, guest: PREFIX_GUEST };
   Mesh.slug = slug;
+  Mesh.iceConfig = iceConfig;
+  Mesh.turnCredential = turnCredential;
 
   Mesh.hostIdFor = function (name) {
     var s = slug(name);
@@ -129,7 +261,7 @@
 
     var options = {
       debug: 1,
-      config: ICE,
+      config: iceConfig(this.turn),
       pingInterval: 5000
     };
     if (this.signal && this.signal.host) {
@@ -156,18 +288,15 @@
       self.emit("open", id);
       self._idRetries = 0;
       if (self.role === "host") self.setStatus("live");
-      if (self.role === "guest") self.connect(self.hostId);
       if (self.role === "guest") {
+        self._dialAttempts = 0;
+        self._sawUnavailable = 0;
+        self.dialHost();
+        // Absolute backstop in case every dial path silently stalls.
         self._hostTimer = setTimeout(function () {
           if (self.destroyed || self.status === "live") return;
-          var hostLink = self.peers.get(self.hostId);
-          if (!hostLink || !hostLink.open) {
-            self.emit("fatal", {
-              code: "unreachable",
-              message: "Couldn't reach @" + self.hostName + ". Ask them to keep their Beam tab open, then try again."
-            });
-          }
-        }, 20000);
+          self.failHost();
+        }, DIAL_ATTEMPTS * DIAL_TIMEOUT + 6000);
       }
     });
 
@@ -202,6 +331,7 @@
     if (this.destroyed) return;
     this.destroyed = true;
     clearTimeout(this._hostTimer);
+    clearTimeout(this._dialTimer);
     clearTimeout(this._retuneTimer);
 
     if (this.localStream) {
@@ -230,6 +360,71 @@
       this.peer = null;
     }
     this.start();
+  };
+
+  /* ── host dialing ────────────────────────────────────── */
+
+  /** Dial the host, retrying with a brand-new data connection each time.
+   *  A single stalled ICE attempt can otherwise leave the guest "knocking"
+   *  forever; a fresh RTCPeerConnection often picks a working path. */
+  Mesh.prototype.dialHost = function () {
+    if (this.destroyed || this.role !== "guest" || !this.hostId) return;
+    if (this.status === "live") return;
+
+    var self = this;
+    clearTimeout(this._dialTimer);
+    this._dialAttempts += 1;
+
+    var existing = this.peers.get(this.hostId);
+    if (existing && existing.open) return;
+    if (existing) {
+      // Abandon the half-open attempt. Mark it stale so late events from its
+      // connection can't open it or tear down a newer link.
+      existing.stale = true;
+      this.dropLink(existing);
+    }
+
+    this.emit("dialing", { attempt: this._dialAttempts, max: DIAL_ATTEMPTS });
+
+    var link = this.connect(this.hostId);
+    if (!link) {
+      if (this._dialAttempts < DIAL_ATTEMPTS) {
+        this._dialTimer = setTimeout(function () { self.dialHost(); }, 800);
+      } else {
+        this.failHost();
+      }
+      return;
+    }
+
+    this._dialTimer = setTimeout(function () {
+      if (self.destroyed || self.status === "live") return;
+      var current = self.peers.get(self.hostId);
+      if (current && current.open) return;
+      if (self._dialAttempts < DIAL_ATTEMPTS) {
+        self.dialHost();
+      } else {
+        self.failHost();
+      }
+    }, DIAL_TIMEOUT);
+  };
+
+  Mesh.prototype.failHost = function () {
+    if (this.destroyed) return;
+    clearTimeout(this._hostTimer);
+    clearTimeout(this._dialTimer);
+
+    if (this._sawUnavailable) {
+      this.emit("fatal", {
+        code: "not-found",
+        message: "No live session under @" + this.hostName + " right now. Check the name, or ask them to open Beam and start a session."
+      });
+      return;
+    }
+
+    this.emit("fatal", {
+      code: "unreachable",
+      message: "Couldn't open a connection to @" + this.hostName + ". Keep both tabs open and try again. If you're on different networks, add a relay in Settings → Relay (TURN)."
+    });
   };
 
   /* ── data channels ───────────────────────────────────── */
@@ -265,9 +460,16 @@
 
     var existing = this.peers.get(conn.peer);
     if (existing && existing.conn && !existing.conn.closed) {
-      // Duplicate handshake (both sides opened at once) — keep the first one.
-      try { conn.close(); } catch (e) {}
-      return;
+      if (existing.open) {
+        // Duplicate handshake (both sides opened at once) — keep the live one.
+        try { conn.close(); } catch (e) {}
+        return;
+      }
+      // A fresh arrival beats a pending attempt that hasn't opened yet: the
+      // old one may be stuck behind a dead NAT path. Swapping it lets the
+      // retry succeed instead of being rejected as a duplicate.
+      try { existing.conn.close(); } catch (e) {}
+      existing.conn = null;
     }
 
     var profile = conn.metadata && conn.metadata.profile ? conn.metadata.profile : null;
@@ -303,10 +505,18 @@
     conn.__beamWired = true;
     var self = this;
 
+    function current() {
+      return !self.destroyed && !link.stale &&
+        self.peers.get(link.id) === link && link.conn === conn;
+    }
+
     conn.on("open", function () {
-      if (self.destroyed) return;
+      if (!current()) { try { conn.close(); } catch (e) {} return; }
       link.open = true;
       clearTimeout(self._hostTimer);
+      clearTimeout(self._dialTimer);
+      self._dialAttempts = 0;
+      self._sawUnavailable = 0;
 
       self.send(link, { t: "profile", profile: self.me });
 
@@ -327,14 +537,33 @@
       self.send(link, { t: "ping", at: Date.now() });
     });
 
-    conn.on("data", function (data) { self.onMessage(link, data); });
+    conn.on("data", function (data) {
+      if (!current()) return;
+      self.onMessage(link, data);
+    });
 
     conn.on("close", function () {
-      if (self.destroyed) return;
-      if (self.role === "guest" && link.id === self.hostId) {
-        self.emit("host-lost");
-      }
+      if (!current()) return;
+      var wasOpen = link.open;
       self.dropLink(link);
+
+      if (wasOpen && self.role === "guest" && link.id === self.hostId) {
+        self.emit("host-lost");
+        return;
+      }
+
+      // A failed attempt that never opened: retry straight away instead of
+      // waiting out the watchdog. PeerJS closes the PC as soon as ICE fails.
+      if (!wasOpen && self.role === "guest" && link.id === self.hostId && self.status !== "live") {
+        clearTimeout(self._dialTimer);
+        if (self._dialAttempts < DIAL_ATTEMPTS) {
+          self._dialTimer = setTimeout(function () {
+            if (!self.destroyed && self.status !== "live") self.dialHost();
+          }, 500);
+        } else {
+          self.failHost();
+        }
+      }
     });
 
     conn.on("error", function (err) {
@@ -775,8 +1004,9 @@
   /* ── teardown ────────────────────────────────────────── */
 
   Mesh.prototype.dropLink = function (link) {
-    if (!link || !this.peers.has(link.id)) return;
+    if (!link || this.peers.get(link.id) !== link) return;
     this.peers.delete(link.id);
+    link.stale = true;
 
     clearInterval(link.pingTimer);
     link.pingTimer = null;
@@ -798,11 +1028,21 @@
 
     if (type === "peer-unavailable") {
       if (this.role === "guest" && this.hostId && msg.indexOf(this.hostId) !== -1) {
-        clearTimeout(this._hostTimer);
-        this.emit("fatal", {
-          code: "not-found",
-          message: "No live session under @" + this.hostName + ". Check the spelling, or ask them to start a session first."
-        });
+        if (this.status === "live") return;
+        this._sawUnavailable += 1;
+        clearTimeout(this._dialTimer);
+
+        if (this._dialAttempts < DIAL_ATTEMPTS) {
+          // The host may still be registering, or their socket may be
+          // reconnecting. Give it a moment and try a fresh connection.
+          var self = this;
+          this._dialTimer = setTimeout(function () {
+            if (!self.destroyed && self.status !== "live") self.dialHost();
+          }, 700 * this._dialAttempts);
+          return;
+        }
+
+        this.failHost();
       }
       return;
     }
