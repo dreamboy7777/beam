@@ -231,7 +231,19 @@
 
     var hostName = "";
     if (role === "guest") {
-      hostName = els.joinInput.value.trim().replace(/^@/, "");
+      hostName = els.joinInput.value.trim();
+      // Be forgiving when someone pastes the whole invite link instead of
+      // just the username.
+      var joinMatch = hostName.match(/[?&]join=([^&#\s]+)/i);
+      if (joinMatch) {
+        try { hostName = decodeURIComponent(joinMatch[1]); } catch (e) { hostName = joinMatch[1]; }
+      }
+      hostName = hostName.replace(/^@/, "").trim();
+      if (/^https?:\/\//i.test(hostName) || hostName.indexOf("/") !== -1) {
+        els.joinInput.focus();
+        U.toast("That link has no room code. Paste the full invite link or just their username.", "warn");
+        return;
+      }
       if (U.slug(hostName).length < 2) {
         els.joinInput.focus();
         U.toast("Type the username of the friend you want to join.", "warn");
