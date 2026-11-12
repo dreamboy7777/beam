@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" />
-<link rel="stylesheet" href="styles.css?v=5" />
+<link rel="stylesheet" href="styles.css?v=6" />
 </head>
 <body>
 
@@ -306,6 +306,10 @@
           <label class="field"><span class="field-label">Username</span><input id="optTurnUser" autocomplete="off" spellcheck="false" /></label>
           <label class="field"><span class="field-label">Password</span><input id="optTurnPass" type="password" autocomplete="off" /></label>
         </div>
+        <div class="relay-test">
+          <button class="link-quiet sm" id="optTurnTest">Test relay</button>
+          <span class="micro" id="optTurnTestResult"></span>
+        </div>
         <button class="link-quiet sm" id="optTurnReset">Reset to default</button>
       </details>
 
@@ -321,9 +325,9 @@
 
 <input type="file" id="avatarFile" accept="image/*" hidden />
 
-<script src="vendor/peerjs.min.js?v=5"></script>
-<script src="js/util.js?v=5"></script>
-<script src="js/rtc.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
+<script src="vendor/peerjs.min.js?v=6"></script>
+<script src="js/util.js?v=6"></script>
+<script src="js/rtc.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
 </body>
 </html>

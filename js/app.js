@@ -31,6 +31,7 @@
       "leaveBtn", "settingsSheet", "loadingOverlay", "loadingTitle", "loadingSub", "loadingCancel",
       "optAudio", "optQuality", "optMotion", "optSigHost", "optSigPort", "optSigPath", "optSigKey",
       "optSigReset", "optTurnUrls", "optTurnUser", "optTurnPass", "optTurnReset",
+      "optTurnTest", "optTurnTestResult",
       "resetAppBtn", "toasts", "landingSettingsBtn"
     ].forEach(function (id) { els[id] = document.getElementById(id); });
   }
@@ -302,13 +303,15 @@
 
     mesh.on("dialing", function (info) {
       if (state.live) return;
+      if (info && info.relay) {
+        els.loadingSub.textContent = "Trying the relay route…";
+        return;
+      }
       var attempt = Number(info && info.attempt) || 1;
       if (attempt <= 1) {
         els.loadingSub.textContent = "Knocking on their door…";
-      } else if (attempt === 2) {
-        els.loadingSub.textContent = "Still connecting — trying another route…";
       } else {
-        els.loadingSub.textContent = "Almost there — trying a relay route…";
+        els.loadingSub.textContent = "Still connecting — trying another route…";
       }
     });
 
@@ -1114,6 +1117,92 @@
     return settings;
   }
 
+  var relayTestRun = 0;
+
+  function testRelay() {
+    var result = els.optTurnTestResult;
+    var button = els.optTurnTest;
+
+    if (typeof RTCPeerConnection !== "function") {
+      result.textContent = "This browser can't test WebRTC relays.";
+      result.className = "micro err";
+      return;
+    }
+
+    state.settings = collectSettings();
+    U.store.set("settings", state.settings);
+
+    var run = ++relayTestRun;
+    var config = Mesh.iceConfig(state.settings.turn);
+    config.iceTransportPolicy = "relay";
+
+    var pc;
+    try {
+      pc = new RTCPeerConnection(config);
+    } catch (e) {
+      result.textContent = "Couldn't start the relay test. Check the relay URL format.";
+      result.className = "micro err";
+      return;
+    }
+
+    var relayCandidates = [];
+    var errors = [];
+    var finished = false;
+    var timer = null;
+
+    button.disabled = true;
+    result.textContent = "Testing relay…";
+    result.className = "micro";
+
+    function finish() {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      try { pc.close(); } catch (e) {}
+      if (run !== relayTestRun) return;
+      button.disabled = false;
+
+      if (relayCandidates.length) {
+        result.textContent = "Relay works — " + relayCandidates.length +
+          " route" + (relayCandidates.length === 1 ? "" : "s") + " ready.";
+        result.className = "micro ok";
+        U.toast("Relay works. You're ready for strict networks.", "ok");
+        return;
+      }
+
+      var rejected = errors.some(function (e) { return e.code === 401; });
+      result.textContent = rejected
+        ? "The relay rejected the username or password."
+        : "No relay route found. Check the relay details, or try a different network.";
+      result.className = "micro err";
+      U.toast(result.textContent, "warn");
+    }
+
+    pc.onicecandidate = function (e) {
+      var cand = e.candidate;
+      if (!cand) return;
+      if (cand.type === "relay" || (cand.candidate && cand.candidate.indexOf(" typ relay") !== -1)) {
+        relayCandidates.push(cand);
+        if (relayCandidates.length === 1) setTimeout(finish, 600);
+      }
+    };
+    pc.onicecandidateerror = function (e) {
+      errors.push({ url: e.url, code: e.errorCode, text: e.errorText });
+    };
+
+    try {
+      pc.createDataChannel("relay-test");
+      pc.createOffer().then(function (offer) {
+        return pc.setLocalDescription(offer);
+      }).catch(function () { finish(); });
+    } catch (e) {
+      finish();
+      return;
+    }
+
+    timer = setTimeout(finish, 9000);
+  }
+
   function wireSettings() {
     function save() {
       state.settings = collectSettings();
@@ -1148,9 +1237,13 @@
     [els.optTurnUrls, els.optTurnUser, els.optTurnPass].forEach(function (input) {
       input.addEventListener("change", function () {
         save();
+        els.optTurnTestResult.textContent = "";
+        els.optTurnTestResult.className = "micro";
         U.toast("Relay settings saved. They apply next time you start a session.", "", null, 3200);
       });
     });
+
+    els.optTurnTest.addEventListener("click", testRelay);
 
     els.optTurnReset.addEventListener("click", function () {
       els.optTurnUrls.value = "";
@@ -1158,6 +1251,8 @@
       els.optTurnPass.value = "";
       state.settings.turn = null;
       U.store.set("settings", state.settings);
+      els.optTurnTestResult.textContent = "";
+      els.optTurnTestResult.className = "micro";
       U.toast("Using the built-in relay.", "ok");
     });
 

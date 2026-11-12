@@ -217,6 +217,7 @@
     this._dialTimer = null;
     this._dialAttempts = 0;
     this._sawUnavailable = 0;
+    this._relayOnly = false;
     this._retuneTimer = null;
   }
   Mesh.prototype = Object.create(Emitter.prototype);
@@ -259,9 +260,11 @@
     this.id = myId;
     this.setStatus("connecting");
 
+    var ice = iceConfig(this.turn);
+    if (this._relayOnly) ice.iceTransportPolicy = "relay";
     var options = {
       debug: 1,
-      config: iceConfig(this.turn),
+      config: ice,
       pingInterval: 5000
     };
     if (this.signal && this.signal.host) {
@@ -375,6 +378,16 @@
     clearTimeout(this._dialTimer);
     this._dialAttempts += 1;
 
+    // If direct/STUN routes have failed twice, make the last attempt relay-only.
+    // A TURN path that is working but slow to win ICE nomination then becomes
+    // deterministic, and the call still gets through on strict networks.
+    if (this._dialAttempts >= DIAL_ATTEMPTS && !this._sawUnavailable && !this._relayOnly) {
+      this._relayOnly = true;
+      if (this.peer && this.peer.options && this.peer.options.config) {
+        this.peer.options.config.iceTransportPolicy = "relay";
+      }
+    }
+
     var existing = this.peers.get(this.hostId);
     if (existing && existing.open) return;
     if (existing) {
@@ -384,7 +397,11 @@
       this.dropLink(existing);
     }
 
-    this.emit("dialing", { attempt: this._dialAttempts, max: DIAL_ATTEMPTS });
+    this.emit("dialing", {
+      attempt: this._dialAttempts,
+      max: DIAL_ATTEMPTS,
+      relay: this._relayOnly
+    });
 
     var link = this.connect(this.hostId);
     if (!link) {
@@ -416,14 +433,14 @@
     if (this._sawUnavailable) {
       this.emit("fatal", {
         code: "not-found",
-        message: "No live session under @" + this.hostName + " right now. Check the name, or ask them to open Beam and start a session."
+        message: "No live session under @" + slug(this.hostName) + " right now. Check the name, or ask them to open Beam and start a session."
       });
       return;
     }
 
     this.emit("fatal", {
       code: "unreachable",
-      message: "Couldn't open a connection to @" + this.hostName + ". Keep both tabs open and try again. If you're on different networks, add a relay in Settings → Relay (TURN)."
+      message: "Couldn't open a connection to @" + slug(this.hostName) + ". Keep both tabs open and try again. If you're on different networks, add a relay in Settings → Relay (TURN)."
     });
   };
 

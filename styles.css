@@ -1337,6 +1337,16 @@ body::after {
 }
 .adv-grid .field input { height: 38px; font-size: 13px; }
 .adv-grid .field.wide { grid-column: 1 / -1; }
+.relay-test {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 8px;
+}
+.relay-test .micro { margin: 0; text-align: left; }
+.relay-test .micro.ok { color: var(--ok); }
+.relay-test .micro.err { color: var(--danger); }
 
 .sheet-foot {
   display: flex;

@@ -122,9 +122,11 @@ You can point Beam at your own signalling server in **Settings → Signalling se
 Screen sharing needs a direct or relayed UDP path between the two browsers. Beam
 ships with STUN and the free Open Relay TURN service (credentials are minted in
 the browser), and retries a failed join three times before reporting an error.
-If a school/office network blocks both paths, add your own TURN server in
-**Settings → Relay (TURN)**. Metered's free Open Relay plan includes credentials
-you can paste there.
+The third attempt is forced through the relay, so a working TURN path is used even
+when direct ICE never settles. Open **Settings → Relay (TURN)** and press
+**Test relay** to confirm the relay is reachable before a call. If a school/office
+network blocks both paths, add your own TURN server there; Metered's free Open
+Relay plan includes credentials you can paste in.
 
 ## Troubleshooting
 
@@ -134,7 +136,7 @@ you can paste there.
 | "Share cancelled — nothing was shared" | You closed the browser's picker, or the page isn't allowed to capture. Click **Share my screen** again and choose a surface. If no picker appears, allow screen recording for your browser (macOS: System Settings → Privacy & Security → Screen Recording). |
 | "…is already live in another tab" | That username is in use. Close the other tab or pick a different name. Beam retries for ~4s first, so a fresh reload usually just works. |
 | "Screen capture needs a secure (https) page" | You're on `http://` with a LAN IP. Use localhost, a tunnel, or a deployed https link. |
-| Stuck on "Knocking on their door" | Beam now retries the connection three times with a fresh route and then explains what to do. If it still fails on both sides, one network is blocking direct/relayed traffic. Open **Settings → Relay (TURN)** and paste a TURN server (free at [metered.ca](https://www.metered.ca/tools/openrelay/)), then start the session again. |
+| Stuck on "Knocking on their door" | Beam retries three times with a fresh route (the last one relay-only) and then explains what to do. Press **Settings → Relay (TURN) → Test relay** to check the relay. If it fails, paste a TURN server (free at [metered.ca](https://www.metered.ca/tools/openrelay/)) and test again. |
 | No video, but names/chat work | The two networks can't find a direct path. Beam already tries STUN and a public TURN relay; a corporate VPN or firewall can still block it. Add your own relay in **Settings → Relay (TURN)** or try a different network. |
 | "The video link is struggling" | Beam tried an ICE restart automatically. Usually resolves in a second or two. |
 
