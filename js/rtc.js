@@ -17,111 +17,11 @@
     { urls: ["stun:global.stun.twilio.com:3478"] }
   ];
 
-  // The public Open Relay TURN service keeps working for browsers through its
-  // static-auth endpoint: the password is an HMAC of a short-lived username.
-  // The old `openrelayproject` / `openrelayproject` pair is rejected now, so
-  // minting a fresh credential is what makes strict-NAT connections work.
-  var TURN_SECRET = "openrelayprojectsecret";
-  var TURN_TTL = 12 * 60 * 60;
-  var TURN_URLS = [
-    "turn:staticauth.openrelay.metered.ca:80",
-    "turn:staticauth.openrelay.metered.ca:443",
-    "turn:staticauth.openrelay.metered.ca:443?transport=tcp",
-    "turns:staticauth.openrelay.metered.ca:443"
-  ];
-
   var DIAL_ATTEMPTS = 3;
   var DIAL_TIMEOUT = 9000;
 
   var PREFIX_HOST = "beamk";
   var PREFIX_GUEST = "beamg";
-
-  /* A compact SHA-1/HMAC used to mint TURN REST credentials synchronously.
-   * Web Crypto is async and we need the ICE config before constructing Peer. */
-  function utf8Bytes(str) {
-    var out = [];
-    for (var i = 0; i < str.length; i++) {
-      var c = str.charCodeAt(i);
-      if (c < 0x80) out.push(c);
-      else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 63));
-      else if (c < 0xd800 || c >= 0xe000) out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
-      else {
-        i++;
-        var cp = 0x10000 + (((c & 0x3ff) << 10) | (str.charCodeAt(i) & 0x3ff));
-        out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 63), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63));
-      }
-    }
-    return new Uint8Array(out);
-  }
-
-  function sha1(bytes) {
-    var length = bytes.length;
-    var total = ((length + 9 + 63) >> 6) << 6;
-    var words = new Uint32Array(total >> 2);
-    for (var i = 0; i < length; i++) words[i >> 2] |= bytes[i] << (24 - (i % 4) * 8);
-    words[length >> 2] |= 0x80 << (24 - (length % 4) * 8);
-    words[(total >> 2) - 1] = length * 8;
-
-    var h0 = 0x67452301, h1 = 0xefcdab89, h2 = 0x98badcfe, h3 = 0x10325476, h4 = 0xc3d2e1f0;
-    var w = new Uint32Array(80);
-    for (var j = 0; j < total >> 2; j += 16) {
-      var t;
-      for (t = 0; t < 16; t++) w[t] = words[j + t];
-      for (t = 16; t < 80; t++) {
-        var n = w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16];
-        w[t] = (n << 1) | (n >>> 31);
-      }
-      var a = h0, b = h1, c = h2, d = h3, e = h4;
-      for (t = 0; t < 80; t++) {
-        var f, k;
-        if (t < 20) { f = (b & c) | (~b & d); k = 0x5a827999; }
-        else if (t < 40) { f = b ^ c ^ d; k = 0x6ed9eba1; }
-        else if (t < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8f1bbcdc; }
-        else { f = b ^ c ^ d; k = 0xca62c1d6; }
-        var tmp = (((a << 5) | (a >>> 27)) + f + e + k + w[t]) >>> 0;
-        e = d; d = c; c = ((b << 30) | (b >>> 2)) >>> 0; b = a; a = tmp;
-      }
-      h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0;
-      h3 = (h3 + d) >>> 0; h4 = (h4 + e) >>> 0;
-    }
-
-    var out = new Uint8Array(20);
-    [h0, h1, h2, h3, h4].forEach(function (h, idx) {
-      out[idx * 4] = h >>> 24;
-      out[idx * 4 + 1] = (h >>> 16) & 255;
-      out[idx * 4 + 2] = (h >>> 8) & 255;
-      out[idx * 4 + 3] = h & 255;
-    });
-    return out;
-  }
-
-  function hmacSha1(keyBytes, dataBytes) {
-    var key = keyBytes;
-    if (key.length > 64) key = sha1(key);
-    var block = new Uint8Array(64);
-    block.set(key);
-    var inner = new Uint8Array(64 + dataBytes.length);
-    var outer = new Uint8Array(64 + 20);
-    for (var i = 0; i < 64; i++) {
-      inner[i] = block[i] ^ 0x36;
-      outer[i] = block[i] ^ 0x5c;
-    }
-    inner.set(dataBytes, 64);
-    outer.set(sha1(inner), 64);
-    return sha1(outer);
-  }
-
-  function base64(bytes) {
-    var s = "";
-    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-    return global.btoa(s);
-  }
-
-  function turnCredential() {
-    var username = String(Math.floor(Date.now() / 1000) + TURN_TTL) + ":beam";
-    var credential = base64(hmacSha1(utf8Bytes(TURN_SECRET), utf8Bytes(username)));
-    return { username: username, credential: credential };
-  }
 
   function normalizeTurn(turn) {
     if (!turn) return null;
@@ -143,16 +43,7 @@
   function iceConfig(turn) {
     var servers = STUN.slice();
     var custom = normalizeTurn(turn);
-    if (custom) {
-      servers.push(custom);
-    } else {
-      var cred = turnCredential();
-      servers.push({
-        urls: TURN_URLS.slice(),
-        username: cred.username,
-        credential: cred.credential
-      });
-    }
+    if (custom) servers.push(custom);
     return { iceServers: servers };
   }
 
@@ -226,7 +117,6 @@
   Mesh.PREFIX = { host: PREFIX_HOST, guest: PREFIX_GUEST };
   Mesh.slug = slug;
   Mesh.iceConfig = iceConfig;
-  Mesh.turnCredential = turnCredential;
 
   Mesh.hostIdFor = function (name) {
     var s = slug(name);
@@ -378,10 +268,11 @@
     clearTimeout(this._dialTimer);
     this._dialAttempts += 1;
 
-    // If direct/STUN routes have failed twice, make the last attempt relay-only.
-    // A TURN path that is working but slow to win ICE nomination then becomes
-    // deterministic, and the call still gets through on strict networks.
-    if (this._dialAttempts >= DIAL_ATTEMPTS && !this._sawUnavailable && !this._relayOnly) {
+    // If direct/STUN routes have failed twice and a relay is configured, make
+    // the last attempt relay-only. A working TURN path then becomes
+    // deterministic even when direct ICE never settles.
+    if (this._dialAttempts >= DIAL_ATTEMPTS && !this._sawUnavailable &&
+        !this._relayOnly && normalizeTurn(this.turn)) {
       this._relayOnly = true;
       if (this.peer && this.peer.options && this.peer.options.config) {
         this.peer.options.config.iceTransportPolicy = "relay";
@@ -438,9 +329,12 @@
       return;
     }
 
+    var relay = normalizeTurn(this.turn);
     this.emit("fatal", {
       code: "unreachable",
-      message: "Couldn't open a connection to @" + slug(this.hostName) + ". Keep both tabs open and try again. If you're on different networks, add a relay in Settings → Relay (TURN)."
+      message: relay
+        ? "Couldn't reach @" + slug(this.hostName) + ". Check the relay in Settings → Relay (TURN) with Test relay, and keep both tabs open."
+        : "Couldn't reach @" + slug(this.hostName) + ". This network needs a relay: add one in Settings → Relay (TURN). Only the host needs it."
     });
   };
 

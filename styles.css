@@ -1347,6 +1347,10 @@ body::after {
 .relay-test .micro { margin: 0; text-align: left; }
 .relay-test .micro.ok { color: var(--ok); }
 .relay-test .micro.err { color: var(--danger); }
+.relay-builtin { margin: 6px 0 10px !important; text-align: left; }
+.relay-builtin code { color: #cfd3e2; font-size: 11px; }
+.relay-builtin a { color: var(--brand-2); text-decoration: underline; }
+.relay-builtin a:hover { color: #fff; }
 
 .sheet-foot {
   display: flex;

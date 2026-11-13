@@ -1132,6 +1132,12 @@
     state.settings = collectSettings();
     U.store.set("settings", state.settings);
 
+    if (!state.settings.turn) {
+      result.textContent = "No relay configured. Paste your TURN details below, then test again.";
+      result.className = "micro err";
+      return;
+    }
+
     var run = ++relayTestRun;
     var config = Mesh.iceConfig(state.settings.turn);
     config.iceTransportPolicy = "relay";
@@ -1253,7 +1259,7 @@
       U.store.set("settings", state.settings);
       els.optTurnTestResult.textContent = "";
       els.optTurnTestResult.className = "micro";
-      U.toast("Using the built-in relay.", "ok");
+      U.toast("Relay cleared. Add one if this network needs it.", "ok");
     });
 
     els.resetAppBtn.addEventListener("click", function () {
