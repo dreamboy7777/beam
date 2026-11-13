@@ -125,12 +125,25 @@ directly, add a TURN relay in **Settings → Relay (TURN)**. Only the host needs
 the guest joins through the host's relay candidate.
 
 The old free public relay (`staticauth.openrelay.metered.ca`) is offline — it no
-longer responds from any region — so it has been removed to avoid slow joins. A
-free TURN credential from [Metered/Open Relay](https://dashboard.metered.ca/signup?tool=turnserver)
-takes about a minute to create. Paste its URLs, username and password into the
-relay settings and press **Test relay** to confirm before starting a call. Joining
-retries three times, and the third attempt is forced through the relay when one
-is configured.
+longer responds from any region — so it has been removed to avoid slow joins.
+
+### Setting up a free relay (about a minute)
+
+Only **one person** (the host) needs to do this. The guest connects through the
+host's relay candidate.
+
+1. Open [Metered/Open Relay signup](https://dashboard.metered.ca/signup?tool=turnserver)
+   and create a free account (no card).
+2. In the dashboard, open **TURN Server & SFU → Credentials** and create a
+   credential.
+3. Copy its **TURN URLs**, **username** and **credential/password**.
+4. In Beam, open **Settings → Relay (TURN)**, paste the URLs (comma-separated),
+   username and password, then press **Test relay**.
+5. Start the room and share the link.
+
+A custom TURN credential works with any provider, not just Metered. The relay is
+only used when a direct connection can't be established, so normal calls stay
+peer-to-peer and fast.
 
 ## Troubleshooting
 
