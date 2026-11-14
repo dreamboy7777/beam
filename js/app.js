@@ -32,6 +32,7 @@
       "optAudio", "optQuality", "optMotion", "optSigHost", "optSigPort", "optSigPath", "optSigKey",
       "optSigReset", "optTurnUrls", "optTurnUser", "optTurnPass", "optTurnReset",
       "optTurnTest", "optTurnTestResult",
+      "worldwideBtn", "worldwidePanel", "worldwideLink", "worldwideCopy", "worldwideOpen",
       "resetAppBtn", "toasts", "landingSettingsBtn"
     ].forEach(function (id) { els[id] = document.getElementById(id); });
   }
@@ -159,6 +160,37 @@
       paintMe();
       saveProfile();
     });
+
+    els.worldwideBtn.addEventListener("click", startWorldwide);
+
+    els.worldwideCopy.addEventListener("click", function () {
+      U.copy(els.worldwideLink.value).then(function () {
+        U.toast("Worldwide link copied.", "ok");
+      }).catch(function () {
+        U.toast("Select the link and copy it manually.", "warn");
+      });
+    });
+  }
+
+  function startWorldwide() {
+    // A zero-setup fallback for networks where peer-to-peer cannot connect.
+    // Talky runs the call through its own hosted relay, so no TURN account is
+    // needed. It can't be embedded, so it opens in its own tab.
+    var room = "beam" + Math.random().toString(36).slice(2, 10);
+    var url = "https://talky.io/" + room;
+    els.worldwidePanel.hidden = false;
+    els.worldwideLink.value = url;
+    els.worldwideOpen.href = url;
+
+    U.copy(url).then(function () {
+      U.toast("Worldwide link copied. Click Join Call, then Share screen.", "ok", null, 7000);
+    }).catch(function () {
+      U.toast("Copy the worldwide link below.", "warn");
+    });
+
+    var win = window.open(url, "_blank");
+    if (win) win.opener = null;
+    else U.toast("Allow popups, or open the link below.", "warn");
   }
 
   function updateNameHint() {

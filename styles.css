@@ -621,6 +621,36 @@ body::after {
   color: var(--muted);
 }
 
+.worldwide {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: center;
+}
+.worldwide-panel {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: left;
+}
+.worldwide-panel strong { display: block; margin-bottom: 5px; font-size: 13px; }
+.worldwide-panel p { margin: 0 0 10px; font-size: 12px; line-height: 1.55; color: var(--muted); }
+.worldwide-row { display: flex; gap: 8px; }
+.worldwide-row input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text);
+  font-size: 12px;
+}
+.worldwide-panel a { display: inline-block; margin-top: 10px; color: var(--brand-2); font-size: 12px; }
+
 .landing-foot {
   flex: none;
   display: flex;

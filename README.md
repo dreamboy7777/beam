@@ -145,6 +145,15 @@ A custom TURN credential works with any provider, not just Metered. The relay is
 only used when a direct connection can't be established, so normal calls stay
 peer-to-peer and fast.
 
+### No-setup worldwide mode
+
+If you don't want to create a relay account, use **No-setup worldwide mode** on
+the landing page. It creates a private Talky room, copies the link and opens it.
+In the Talky tab click **Join Call**, then **Share screen**; your friend opens the
+copied link and clicks **Join Call**. Talky is a third-party hosted service with
+its own relays, so this path works across networks without any TURN setup. It
+opens in its own tab because Talky does not allow embedding.
+
 ## Troubleshooting
 
 | What you see | What it means |
