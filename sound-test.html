@@ -69,7 +69,7 @@
   <main>
     <div class="badge">BEAM · SOUND TEST</div>
     <h1>Can they hear this?</h1>
-    <p>Click <b>Play sound</b>, then in Talky click <b>Share screen</b> and choose <b>this tab</b>. Turn on <b>Share tab audio</b>.</p>
+    <p>Click <b>Play sound</b>, then in Talky click <b>Share screen</b>, choose <b>Entire screen</b>, and turn on <b>Share system audio</b>. On macOS or if system audio isn't offered, share <b>this tab</b> with <b>Share tab audio</b>.</p>
     <div class="meter" id="meter">
       <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
     </div>
@@ -78,8 +78,8 @@
       <button id="stop" class="ghost" type="button" hidden>Stop</button>
       <button id="openTalky" class="ghost" type="button" hidden>Close test tab</button>
     </div>
-    <p class="hint">If your friend hears the tone, sound sharing works. Stop sharing this tab, then share the tab with your video or music.</p>
-    <p class="note">Sharing a Window has no sound. For a game or your whole desktop, choose Entire screen and turn on Share system audio (Windows).</p>
+    <p class="hint">If your friend hears the tone, sound sharing works. Stop sharing, then share Entire screen with Share system audio (or the real tab with Share tab audio).</p>
+    <p class="note">Window sharing has no sound. Entire screen + system audio is the Windows Chrome/Edge path; macOS usually needs a tab or a virtual audio device.</p>
   </main>
   <script>
     var ctx = null;

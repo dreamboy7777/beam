@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" />
-<link rel="stylesheet" href="styles.css?v=12" />
+<link rel="stylesheet" href="styles.css?v=13" />
 </head>
 <body>
 
@@ -134,7 +134,7 @@
           <p class="micro">Guaranteed across networks · opens a private Talky room · no account</p>
           <div class="worldwide-panel" id="worldwidePanel" hidden>
             <strong>Worldwide mode</strong>
-            <p>In the Talky tab click <b>Join Call</b>, then <b>Share screen</b>, choose the <b>browser tab with the sound</b>, and turn on <b>Share tab audio</b>. Your friend opens the link and clicks Join Call.</p>
+            <p>In the Talky tab click <b>Join Call</b>, then <b>Share screen</b>, choose <b>Entire screen</b>, and turn on <b>Share system audio</b> (or share a tab with <b>Share tab audio</b>). Your friend opens the link and clicks Join Call.</p>
             <div class="worldwide-row">
               <input id="worldwideLink" readonly />
               <button type="button" class="btn ghost sm" id="worldwideCopy">Copy</button>
@@ -203,7 +203,7 @@
         </span>
       </div>
       <h3 id="emptyTitle">Nobody is sharing yet</h3>
-      <p id="emptyBody">Hit <b>Share my screen</b>, choose a <b>browser tab</b>, and turn on <b>Share tab audio</b> so they can hear it too.</p>
+      <p id="emptyBody">Hit <b>Share my screen</b>, choose <b>Entire screen</b> and turn on <b>Share system audio</b> — or share a tab with <b>Share tab audio</b>.</p>
       <div class="se-people" id="emptyPeople"></div>
     </div>
 
@@ -275,16 +275,17 @@
     <ol class="guide-steps">
       <li>In the Talky tab, click <b>Join Call</b>.</li>
       <li>Click <b>Share screen</b>.</li>
-      <li>Choose the <b>browser tab</b> that has the video or music — <b>not</b> Entire screen or Window.</li>
-      <li>Turn on <b>Share tab audio</b>.</li>
+      <li>Choose <b>Entire screen</b> to share everything, or the <b>browser tab</b> that has the sound.</li>
+      <li>Turn on <b>Share system audio</b> for Entire screen, or <b>Share tab audio</b> for a tab.</li>
     </ol>
-    <p class="micro">For a game or your whole desktop: choose <b>Entire screen</b> and turn on <b>Share system audio</b> (Windows). Sharing a Window usually has no sound. Never share the Talky tab itself. Also make sure the shared tab isn't muted and Talky's speaker volume is up.</p>
+    <p class="micro" id="guidePlatform"></p>
+    <p class="micro">Window sharing has no sound. For Windows Chrome/Edge, Entire screen + Share system audio captures your whole desktop, games and apps. On macOS, Chrome usually can't capture system audio from Entire screen — use a tab or a virtual audio device.</p>
     <div class="guide-actions">
       <button type="button" class="btn primary" id="guideOpen">Open Talky room</button>
       <button type="button" class="btn ghost" id="guideTest">Test sound first</button>
       <button type="button" class="link-quiet sm" id="guideCancel">Cancel</button>
     </div>
-    <p class="micro">The invite link is copied when you open the room. Not sure? Open the sound test tab, play it, and share <b>that tab</b> with tab audio first.</p>
+    <p class="micro">The invite link is copied when you open the room. Not sure? Open the sound test tab, play it, and share <b>Entire screen with system audio</b> (or that tab with tab audio) first.</p>
     <p class="micro">On your friend's side: if the host tile shows <b>Mute</b>, click it so it changes to <b>Unmute</b>, and raise Talky's speaker volume.</p>
   </div>
 </div>
@@ -355,9 +356,9 @@
 
 <input type="file" id="avatarFile" accept="image/*" hidden />
 
-<script src="vendor/peerjs.min.js?v=12"></script>
-<script src="js/util.js?v=12"></script>
-<script src="js/rtc.js?v=12"></script>
-<script src="js/app.js?v=12"></script>
+<script src="vendor/peerjs.min.js?v=13"></script>
+<script src="js/util.js?v=13"></script>
+<script src="js/rtc.js?v=13"></script>
+<script src="js/app.js?v=13"></script>
 </body>
 </html>

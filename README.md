@@ -149,15 +149,19 @@ peer-to-peer and fast.
 
 If you don't want to create a relay account, use **No-setup worldwide mode** on
 the landing page. It creates a private Talky room and shows a sound guide. In the
-Talky tab click **Join Call**, then **Share screen**, choose the **browser tab**
-that contains the video/music, and turn on **Share tab audio**.
+Talky tab click **Join Call**, then **Share screen**.
 
-- Sharing a **Window** usually has no sound.
-- For a game or whole desktop, choose **Entire screen** and turn on **Share system
-  audio** (Windows). macOS needs a tab for reliable audio.
-- Never share the Talky tab itself. Make sure the shared tab is not muted.
-- Use the **sound test tab** in the guide to verify: play the tone, share that
-  tab with tab audio, and check your friend hears it. Then share the real tab.
+- To share **everything** (whole desktop, games, apps) with sound: choose
+  **Entire screen** and turn on **Share system audio**. This is supported by
+  Chrome/Edge on Windows.
+- To share a video or music: choose that **browser tab** and turn on **Share tab
+  audio**.
+- Sharing a **Window** has no sound.
+- On macOS, Chrome usually can't capture system audio from Entire screen. Use a
+  tab with tab audio, or install a virtual audio device.
+- Use the **sound test tab** in the guide to verify: play the tone, share Entire
+  screen with system audio (or the test tab with tab audio), and check your friend
+  hears it. Then share the real screen.
 - On the viewer side, if the host tile shows **Mute**, click it to unmute, and
   raise Talky's speaker volume.
 

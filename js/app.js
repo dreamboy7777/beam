@@ -34,7 +34,7 @@
       "optSigReset", "optTurnUrls", "optTurnUser", "optTurnPass", "optTurnReset",
       "optTurnTest", "optTurnTestResult",
       "worldwideBtn", "worldwidePanel", "worldwideLink", "worldwideCopy", "worldwideOpen",
-      "soundGuide", "guideOpen", "guideTest", "guideCancel",
+      "soundGuide", "guideOpen", "guideTest", "guideCancel", "guidePlatform",
       "resetAppBtn", "toasts", "landingSettingsBtn"
     ].forEach(function (id) { els[id] = document.getElementById(id); });
   }
@@ -189,6 +189,24 @@
     });
   }
 
+  function platformSoundNote() {
+    var ua = navigator.userAgent;
+    var win = /Windows/i.test(ua);
+    var mac = /Macintosh|Mac OS X/i.test(ua);
+    var ios = /iPad|iPhone|iPod/.test(ua);
+    var chromium = /Chrome|CriOS|Edg/i.test(ua) && !/Firefox|OPR/i.test(ua);
+    if (win && chromium) {
+      return "Windows detected: Entire screen + Share system audio is the supported way to share everything with sound.";
+    }
+    if (mac || ios) {
+      return "macOS/iOS detected: Chrome usually can't capture system audio from Entire screen. Share a tab with Share tab audio, or use a virtual audio device.";
+    }
+    if (!chromium) {
+      return "This browser may not support system audio for Entire screen. Use Chrome or Edge on Windows, or share a tab with Share tab audio.";
+    }
+    return "In the picker, choose Entire screen and tick Share system audio for everything with sound.";
+  }
+
   function startWorldwide() {
     // A zero-setup fallback for networks where peer-to-peer cannot connect.
     // Talky runs the call through its own hosted relay, so no TURN account is
@@ -199,6 +217,7 @@
     els.worldwidePanel.hidden = false;
     els.worldwideLink.value = url;
     els.worldwideOpen.href = url;
+    els.guidePlatform.textContent = platformSoundNote();
     // Make the sound steps impossible to miss before the share happens.
     els.soundGuide.hidden = false;
   }
@@ -209,7 +228,7 @@
     els.soundGuide.hidden = true;
 
     U.copy(url).then(function () {
-      U.toast("Worldwide link copied. Join, then Share screen — pick a tab and turn on Share tab audio.", "ok", null, 9000);
+      U.toast("Worldwide link copied. Join, then Share screen — Entire screen + Share system audio, or a tab + Share tab audio.", "ok", null, 10000);
     }).catch(function () {
       U.toast("Copy the worldwide link below.", "warn");
     });
@@ -622,7 +641,7 @@
     els.shareBtn.classList.toggle("stopping", !!active);
     els.shareBtn.title = active
       ? "Stop sharing your screen"
-      : "Pick a browser tab and turn on “Share tab audio” so they can hear it";
+      : "Choose Entire screen + Share system audio, or a tab + Share tab audio";
     els.shareLabel.textContent = active ? "Stop sharing" : "Share my screen";
     var selfUi = state.tiles.get("self");
     if (selfUi) {
