@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" />
-<link rel="stylesheet" href="styles.css?v=9" />
+<link rel="stylesheet" href="styles.css?v=10" />
 </head>
 <body>
 
@@ -134,7 +134,7 @@
           <p class="micro">Guaranteed across networks · opens a private Talky room · no account</p>
           <div class="worldwide-panel" id="worldwidePanel" hidden>
             <strong>Worldwide mode</strong>
-            <p>Link copied. In the Talky tab click <b>Join Call</b>, then <b>Share screen</b>. Your friend opens the link and clicks Join Call.</p>
+            <p>Link copied. In the Talky tab click <b>Join Call</b>, then <b>Share screen</b> and tick <b>Share tab audio</b>. Your friend opens the link and clicks Join Call.</p>
             <div class="worldwide-row">
               <input id="worldwideLink" readonly />
               <button type="button" class="btn ghost sm" id="worldwideCopy">Copy</button>
@@ -203,7 +203,7 @@
         </span>
       </div>
       <h3 id="emptyTitle">Nobody is sharing yet</h3>
-      <p id="emptyBody">Hit <b>Share my screen</b>, then pick Entire screen, Window or Tab.</p>
+      <p id="emptyBody">Hit <b>Share my screen</b>, choose a <b>browser tab</b>, and turn on <b>Share tab audio</b> so they can hear it too.</p>
       <div class="se-people" id="emptyPeople"></div>
     </div>
 
@@ -281,11 +281,6 @@
 
     <div class="sheet-body">
       <div class="setting">
-        <div><b>Share tab audio</b><span>Capture sound from the tab or screen you share.</span></div>
-        <label class="switch"><input type="checkbox" id="optAudio" checked /><span></span></label>
-      </div>
-
-      <div class="setting">
         <div><b>Video quality</b><span>Higher looks better and uses more bandwidth.</span></div>
         <select id="optQuality" class="select">
           <option value="720">720p — smooth</option>
@@ -340,9 +335,9 @@
 
 <input type="file" id="avatarFile" accept="image/*" hidden />
 
-<script src="vendor/peerjs.min.js?v=9"></script>
-<script src="js/util.js?v=9"></script>
-<script src="js/rtc.js?v=9"></script>
-<script src="js/app.js?v=9"></script>
+<script src="vendor/peerjs.min.js?v=10"></script>
+<script src="js/util.js?v=10"></script>
+<script src="js/rtc.js?v=10"></script>
+<script src="js/app.js?v=10"></script>
 </body>
 </html>

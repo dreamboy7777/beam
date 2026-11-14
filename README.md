@@ -164,6 +164,7 @@ opens in its own tab because Talky does not allow embedding.
 | "Screen capture needs a secure (https) page" | You're on `http://` with a LAN IP. Use localhost, a tunnel, or a deployed https link. |
 | Stuck on "Knocking on their door" | Beam retries three times with a fresh route and then explains what to do. On strict networks add a TURN relay in **Settings → Relay (TURN)**, press **Test relay**, then start again. Only the host needs the relay. |
 | No video, but names/chat work | The two networks can't find a direct path. Add your own TURN relay in **Settings → Relay (TURN)** (free at [metered.ca](https://dashboard.metered.ca/signup?tool=turnserver)) or try a different network. |
+| Viewer can see the screen but hears nothing | The host shared without audio. Stop sharing, click **Share my screen**, choose a **browser tab** (not a window/entire screen), and tick **Share tab audio**. The host's own tile says `sound on` or `no sound`, so you can check before sending the link. The viewer may also need to click **Click to hear the screen** once, because browsers block unmuted autoplay. |
 | "The video link is struggling" | Beam tried an ICE restart automatically. Usually resolves in a second or two. |
 
 Browser support: Chrome, Edge, Firefox and Safari 13+. Sharing a **tab with audio** works

@@ -29,7 +29,7 @@
       "reactions", "chatPanel", "chatClose", "chatLog", "chatForm", "chatInput", "chatSub",
       "peopleStrip", "roomName", "copyLinkBtn", "settingsBtn", "statusPill", "statusText",
       "leaveBtn", "settingsSheet", "loadingOverlay", "loadingTitle", "loadingSub", "loadingCancel",
-      "optAudio", "optQuality", "optMotion", "optSigHost", "optSigPort", "optSigPath", "optSigKey",
+      "optQuality", "optMotion", "optSigHost", "optSigPort", "optSigPath", "optSigKey",
       "optSigReset", "optTurnUrls", "optTurnUser", "optTurnPass", "optTurnReset",
       "optTurnTest", "optTurnTestResult",
       "worldwideBtn", "worldwidePanel", "worldwideLink", "worldwideCopy", "worldwideOpen",
@@ -183,7 +183,7 @@
     els.worldwideOpen.href = url;
 
     U.copy(url).then(function () {
-      U.toast("Worldwide link copied. Click Join Call, then Share screen.", "ok", null, 7000);
+      U.toast("Worldwide link copied. Click Join Call, then Share screen — tick “Share tab audio” for sound.", "ok", null, 8000);
     }).catch(function () {
       U.toast("Copy the worldwide link below.", "warn");
     });
@@ -408,7 +408,23 @@
     mesh.on("share-start", function (stream) {
       showStream("self", stream);
       setSharingUI(true);
-      if (state.live) U.toast("You're live. They can see your screen now.", "ok");
+      var hasAudio = false;
+      try { hasAudio = stream.getAudioTracks().length > 0; } catch (e) {}
+      if (state.live) {
+        U.toast(
+          hasAudio ? "You're live. They can see and hear your screen." : "You're live. They can see your screen.",
+          "ok"
+        );
+      }
+    });
+
+    mesh.on("share-no-audio", function () {
+      U.toast(
+        "Your screen is sharing without sound. Stop sharing, pick a browser tab, and tick “Share tab audio”.",
+        "warn",
+        "No audio captured.",
+        12000
+      );
     });
 
     mesh.on("share-end", function () {
@@ -550,7 +566,9 @@
     els.shareLabel.textContent = "Opening picker…";
 
     mesh.startShare({
-      audio: state.settings.audio,
+      // Always ask for the shared tab/screen's audio. The browser picker still
+      // lets the host opt out by unchecking "Share tab audio".
+      audio: true,
       quality: state.settings.quality
     }).then(function () {
       // handled by the share-start event
@@ -578,7 +596,7 @@
     els.shareBtn.classList.toggle("stopping", !!active);
     els.shareBtn.title = active
       ? "Stop sharing your screen"
-      : "Choose Entire screen, Window or Tab in the browser dialog";
+      : "Pick a browser tab and turn on “Share tab audio” so they can hear it";
     els.shareLabel.textContent = active ? "Stop sharing" : "Share my screen";
     var selfUi = state.tiles.get("self");
     if (selfUi) {
@@ -649,6 +667,7 @@
       else if (act === "pip") togglePip(video, tile);
       else if (act === "mute") {
         video.muted = !video.muted;
+        ui.userMuted = video.muted;
         btn.innerHTML = U.svg(video.muted ? U.ICONS.mute : U.ICONS.volume, 1.8);
         tile.classList.toggle("tile-sound-off", video.muted);
         U.toast(video.muted ? "Their audio is muted." : "Their audio is on.", "", null, 1800);
@@ -673,6 +692,7 @@
       sub: fbSub,
       audioBadge: audioBadge,
       hasStream: false,
+      userMuted: false,
       profile: prof,
       tapLayer: null
     };
@@ -722,20 +742,34 @@
     ui.video.srcObject = stream;
     ui.hasStream = true;
     ui.tile.classList.add("has-stream");
-    ui.sub.textContent = id === "self" ? "Sharing your screen" : "Sharing their screen";
 
     var hasAudio = false;
     try {
       hasAudio = stream.getAudioTracks().some(function (t) { return t.readyState === "live"; });
     } catch (e) { hasAudio = false; }
+
+    var isSelf = id === "self";
+    ui.sub.textContent = isSelf
+      ? (hasAudio ? "Sharing your screen · sound on" : "Sharing your screen · no sound")
+      : (hasAudio ? "Sharing their screen · sound on" : "Sharing their screen · no sound");
     ui.audioBadge.hidden = !hasAudio;
-    ui.video.muted = id === "self" ? true : false;
-    ui.tile.classList.toggle("tile-sound-off", false);
+    ui.video.muted = isSelf || !!ui.userMuted;
+    if (!isSelf) {
+      ui.video.volume = 1;
+    }
+    ui.tile.classList.toggle("tile-sound-off", !isSelf && (!hasAudio || ui.video.muted));
 
     var attempt = ui.video.play();
-    if (attempt && attempt.catch) {
-      attempt.catch(function () { showTapToPlay(ui); });
+    var needsTap = false;
+    if (!isSelf && hasAudio && !ui.userMuted) {
+      // Auto-joined guests may not have interacted with this page yet, so the
+      // browser can allow the silent video but keep the audio blocked.
+      try { needsTap = !!(navigator.userActivation && !navigator.userActivation.hasBeenActive); } catch (e) {}
     }
+    if (attempt && attempt.catch) {
+      attempt.catch(function () { showTapToPlay(ui, hasAudio); });
+    }
+    if (needsTap) showTapToPlay(ui, true);
     updateGridCount();
     updateEmpty();
   }
@@ -753,13 +787,16 @@
     updateEmpty();
   }
 
-  function showTapToPlay(ui) {
+  function showTapToPlay(ui, hasAudio) {
     if (ui.tapLayer) return;
     var layer = U.el("button", { class: "tap-to-play", type: "button" },
       U.el("span", { class: "tpp", html: U.svg(U.ICONS.play, 1.6) }),
-      "Click to play"
+      hasAudio ? "Click to hear the screen" : "Click to play"
     );
     layer.addEventListener("click", function () {
+      ui.userMuted = false;
+      ui.video.muted = false;
+      ui.video.volume = 1;
       ui.video.play().catch(function () {});
       layer.remove();
       ui.tapLayer = null;
@@ -1114,7 +1151,6 @@
   /* ══════════════════ settings ══════════════════ */
 
   function syncSettingsUI() {
-    els.optAudio.checked = !!state.settings.audio;
     els.optQuality.value = state.settings.quality || "1080";
     els.optMotion.checked = !!state.settings.motion;
     var sig = state.settings.signal || {};
@@ -1130,7 +1166,7 @@
 
   function collectSettings() {
     var settings = {
-      audio: els.optAudio.checked,
+      audio: true,
       quality: els.optQuality.value,
       motion: els.optMotion.checked,
       signal: null,
@@ -1256,7 +1292,6 @@
       applyMotion();
     }
 
-    els.optAudio.addEventListener("change", save);
     els.optQuality.addEventListener("change", save);
     els.optMotion.addEventListener("change", function () {
       save();

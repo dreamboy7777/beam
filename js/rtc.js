@@ -677,9 +677,10 @@
     }
     var constraints = {
       video: video,
-      audio: opts.audio
-        ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-        : false,
+      // Display-media audio is tab/system audio, not microphone audio. Passing
+      // microphone processing constraints here makes some browsers reject the
+      // audio request (and the old fallback then silently shared video only).
+      audio: opts.audio ? true : false,
       // Chromium picker hints. These are ignored by browsers that don't know
       // them, and they keep the dialog at parity with Discord: every screen,
       // app window and tab is offered, plus system/tab audio and "share this
@@ -693,7 +694,7 @@
 
     return navigator.mediaDevices.getDisplayMedia(constraints).catch(function (e) {
       // Some platforms reject the audio constraint instead of ignoring it.
-      if (constraints.audio && (e && (e.name === "NotSupportedError" || e.name === "TypeError"))) {
+      if (opts.audio && (e && (e.name === "NotSupportedError" || e.name === "TypeError"))) {
         return navigator.mediaDevices.getDisplayMedia(
           Object.assign({}, constraints, { audio: false, systemAudio: "exclude" })
         );
@@ -716,8 +717,17 @@
         });
       }
 
+      // Make sure the captured sound is actually live. If the browser returned
+      // no audio track, the UI needs to say so instead of leaving the guest
+      // wondering why the screen is silent.
+      var audioTracks = stream.getAudioTracks();
+      audioTracks.forEach(function (t) { try { t.enabled = true; } catch (e) {} });
+
       self.peers.forEach(function (link) { self.callPeer(link); });
       self.emit("share-start", stream);
+      if (opts.audio && audioTracks.length === 0) {
+        self.emit("share-no-audio");
+      }
       return stream;
     });
   };
@@ -726,6 +736,12 @@
     if (!this.localStream || !this.peer || this.destroyed) return;
     if (!link || !link.open) return;
     if (link.outCall) return;
+
+    // Audio is part of the same stream as the screen. Keep the track enabled
+    // for every call so a previously muted/ended track can't silence a viewer.
+    this.localStream.getAudioTracks().forEach(function (t) {
+      try { t.enabled = true; } catch (e) {}
+    });
 
     var call;
     try {
