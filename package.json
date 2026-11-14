@@ -5,7 +5,11 @@
   "description": "Peer-to-peer screen sharing in one link. No accounts, no install, no recordings.",
   "scripts": {
     "start": "node server.js",
-    "open": "node server.js --open"
+    "open": "node server.js --open",
+    "relay": "node relay-start.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
   },
   "engines": {
     "node": ">=18"

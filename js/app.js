@@ -10,7 +10,6 @@
     mesh: null,
     role: null,
     hostName: "",
-    worldwideUrl: "",
     tiles: new Map(),      // peerId | "self" -> ui handle
     messages: 0,
     unread: 0,
@@ -32,9 +31,7 @@
       "leaveBtn", "settingsSheet", "loadingOverlay", "loadingTitle", "loadingSub", "loadingCancel",
       "optQuality", "optMotion", "optSigHost", "optSigPort", "optSigPath", "optSigKey",
       "optSigReset", "optTurnUrls", "optTurnUser", "optTurnPass", "optTurnReset",
-      "optTurnTest", "optTurnTestResult",
-      "worldwideBtn", "worldwidePanel", "worldwideLink", "worldwideCopy", "worldwideOpen",
-      "soundGuide", "guideOpen", "guideTest", "guideCancel", "guidePlatform",
+      "optTurnTest", "optTurnTestResult", "relayBtn",
       "resetAppBtn", "toasts", "landingSettingsBtn"
     ].forEach(function (id) { els[id] = document.getElementById(id); });
   }
@@ -163,79 +160,14 @@
       saveProfile();
     });
 
-    els.worldwideBtn.addEventListener("click", startWorldwide);
-
-    els.worldwideCopy.addEventListener("click", function () {
-      U.copy(els.worldwideLink.value).then(function () {
-        U.toast("Worldwide link copied.", "ok");
-      }).catch(function () {
-        U.toast("Select the link and copy it manually.", "warn");
-      });
+    els.relayBtn.addEventListener("click", function () {
+      var win = window.open("http://localhost:8790/", "_blank");
+      if (!win) {
+        U.toast("Allow popups, then start the relay with start-beam-relay.bat.", "warn");
+      } else {
+        U.toast("If the relay page doesn't load, double-click start-beam-relay.bat in the Beam folder.", "", null, 7000);
+      }
     });
-
-    els.worldwideOpen.addEventListener("click", function (e) {
-      e.preventDefault();
-      openWorldwideRoom();
-    });
-
-    els.guideOpen.addEventListener("click", openWorldwideRoom);
-    els.guideTest.addEventListener("click", function () {
-      var win = window.open("sound-test.html", "_blank");
-      if (win) win.opener = null;
-      else U.toast("Allow popups to open the sound test.", "warn");
-    });
-    els.guideCancel.addEventListener("click", function () {
-      els.soundGuide.hidden = true;
-    });
-  }
-
-  function platformSoundNote() {
-    var ua = navigator.userAgent;
-    var win = /Windows/i.test(ua);
-    var mac = /Macintosh|Mac OS X/i.test(ua);
-    var ios = /iPad|iPhone|iPod/.test(ua);
-    var chromium = /Chrome|CriOS|Edg/i.test(ua) && !/Firefox|OPR/i.test(ua);
-    if (win && chromium) {
-      return "Windows detected: Entire screen + Share system audio is the supported way to share everything with sound.";
-    }
-    if (mac || ios) {
-      return "macOS/iOS detected: Chrome usually can't capture system audio from Entire screen. Share a tab with Share tab audio, or use a virtual audio device.";
-    }
-    if (!chromium) {
-      return "This browser may not support system audio for Entire screen. Use Chrome or Edge on Windows, or share a tab with Share tab audio.";
-    }
-    return "In the picker, choose Entire screen and tick Share system audio for everything with sound.";
-  }
-
-  function startWorldwide() {
-    // A zero-setup fallback for networks where peer-to-peer cannot connect.
-    // Talky runs the call through its own hosted relay, so no TURN account is
-    // needed. It can't be embedded, so it opens in its own tab.
-    var room = "beam" + Math.random().toString(36).slice(2, 10);
-    var url = "https://talky.io/" + room;
-    state.worldwideUrl = url;
-    els.worldwidePanel.hidden = false;
-    els.worldwideLink.value = url;
-    els.worldwideOpen.href = url;
-    els.guidePlatform.textContent = platformSoundNote();
-    // Make the sound steps impossible to miss before the share happens.
-    els.soundGuide.hidden = false;
-  }
-
-  function openWorldwideRoom() {
-    var url = state.worldwideUrl;
-    if (!url) return;
-    els.soundGuide.hidden = true;
-
-    U.copy(url).then(function () {
-      U.toast("Worldwide link copied. Join, then Share screen — Entire screen + Share system audio, or a tab + Share tab audio.", "ok", null, 10000);
-    }).catch(function () {
-      U.toast("Copy the worldwide link below.", "warn");
-    });
-
-    var win = window.open(url, "_blank");
-    if (win) win.opener = null;
-    else U.toast("Allow popups, or open the link below.", "warn");
   }
 
   function updateNameHint() {

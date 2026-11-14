@@ -145,29 +145,28 @@ A custom TURN credential works with any provider, not just Metered. The relay is
 only used when a direct connection can't be established, so normal calls stay
 peer-to-peer and fast.
 
-### No-setup worldwide mode
+### Beam Relay — Entire screen + system audio
 
-If you don't want to create a relay account, use **No-setup worldwide mode** on
-the landing page. It creates a private Talky room and shows a sound guide. In the
-Talky tab click **Join Call**, then **Share screen**.
+For a Discord-style whole-desktop share with sound — no TURN, no accounts, no
+third-party video service — run the bundled relay on the host machine:
 
-- To share **everything** (whole desktop, games, apps) with sound: choose
-  **Entire screen** and turn on **Share system audio**. This is supported by
-  Chrome/Edge on Windows.
-- To share a video or music: choose that **browser tab** and turn on **Share tab
-  audio**.
-- Sharing a **Window** has no sound.
-- On macOS, Chrome usually can't capture system audio from Entire screen. Use a
-  tab with tab audio, or install a virtual audio device.
-- Use the **sound test tab** in the guide to verify: play the tone, share Entire
-  screen with system audio (or the test tab with tab audio), and check your friend
-  hears it. Then share the real screen.
-- On the viewer side, if the host tile shows **Mute**, click it to unmute, and
-  raise Talky's speaker volume.
+1. Run `npm install` once.
+2. Double-click **`start-beam-relay.bat`** (or run `node relay-start.js`).
+3. It starts the relay on `http://localhost:8790`, opens a public Cloudflare
+   quick tunnel, and opens the host page.
+4. On the host page click **Share Entire screen**, then tick **Share system
+   audio** in the picker. The page shows **Sound: ON/OFF** immediately.
+5. Click **Copy** and send the viewer link.
+6. Your friend opens it and clicks **Watch with sound**.
 
-Talky is a third-party hosted service with its own relays, so this path works
-across networks without any TURN setup. It opens in its own tab because Talky
-does not allow embedding.
+The relay uses WebSocket + MediaRecorder (WebM/VP8 + Opus). It works through
+HTTPS tunnels, so it is not affected by NAT or TURN. Keep the relay window and
+the sharing tab open; latency is typically 1–2 seconds. The free quick-tunnel
+URL changes when the relay restarts — copy the new link each time. For a
+permanent URL, use a Cloudflare named tunnel or a small VPS.
+
+The direct P2P mode remains available when it connects; the relay is the
+reliable path for entire-screen sharing with system audio.
 
 ## Troubleshooting
 

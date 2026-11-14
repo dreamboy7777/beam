@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Beam Relay — share your screen</title>
+  <link rel="stylesheet" href="/relay/relay.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">Beam Relay <span>entire screen + system sound</span></div>
+      <div class="pill"><span class="dot" id="netDot"></span><span id="netText">Connecting…</span></div>
+    </header>
+
+    <div class="grid">
+      <div class="card stack">
+        <div class="stage">
+          <video id="preview" autoplay muted playsinline></video>
+          <div class="empty" id="stageEmpty">
+            <strong>Entire screen. System sound. No TURN.</strong><br />
+            Click <b>Share Entire screen</b>, then tick <b>Share system audio</b> in the picker.
+          </div>
+        </div>
+
+        <div class="row">
+          <button id="shareBtn">Share Entire screen</button>
+          <button id="stopBtn" class="danger" hidden>Stop sharing</button>
+          <span class="badge" id="soundBadge">Sound: unknown</span>
+          <span class="badge" id="viewerBadge">Viewers: 0</span>
+        </div>
+
+        <div class="warn" id="soundWarn">
+          <b>No sound captured.</b> Stop sharing and share again: choose <b>Entire screen</b> and turn on
+          <b>Share system audio</b> (Windows Chrome/Edge). If you only share a tab, use <b>Share tab audio</b> instead.
+        </div>
+
+        <div class="stack">
+          <h2>Send this link to your friend</h2>
+          <div class="linkbox">
+            <input id="viewerLink" readonly value="Loading…" />
+            <button id="copyBtn" class="ghost">Copy</button>
+          </div>
+          <p class="micro">Your friend opens the link, clicks <b>Watch with sound</b>, and sees this screen. Keep this tab open while sharing. The link is private to this room.</p>
+        </div>
+      </div>
+
+      <aside class="card stack">
+        <h1>Like Discord, but yours.</h1>
+        <p>This mode sends the whole desktop and its audio through your own Beam relay. No accounts, no TURN, no third-party video service.</p>
+        <ul>
+          <li><b>Entire screen</b> + <b>Share system audio</b> = everything, with sound.</li>
+          <li>Window sharing usually has no audio.</li>
+          <li>The friend must click <b>Watch with sound</b> once.</li>
+          <li>Keep this machine awake and this tab open.</li>
+          <li>Latency is typically 1–2 seconds; it is a relay, not a gaming stream.</li>
+        </ul>
+        <p class="micro" id="publicHint"></p>
+      </aside>
+    </div>
+    <footer>Beam Relay · your machine is the server · no recordings</footer>
+  </div>
+
+  <script src="/relay/host.js"></script>
+</body>
+</html>
