@@ -69,11 +69,15 @@
     if (joinParam) {
       els.joinInput.value = joinParam.slice(0, 24);
       var savedName = state.me.name && U.slug(state.me.name).length >= 2;
-      if (savedName) {
-        setTimeout(function () { if (!state.live) startSession("guest"); }, 450);
-      } else {
-        setTimeout(function () { els.nameInput.focus(); }, 300);
+      if (!savedName) {
+        // A guest should never have to type anything: opening the link is
+        // enough. Give them a friendly throwaway name and join immediately.
+        state.me.name = "Guest" + Math.floor(Math.random() * 9000 + 1000);
+        state.me.hue = U.hash(state.me.name) % 8;
+        els.nameInput.value = state.me.name;
+        saveProfile();
       }
+      setTimeout(function () { if (!state.live) startSession("guest"); }, 450);
     }
 
     wireLanding();
@@ -220,6 +224,10 @@
     if (state.live || state.mesh) return;
 
     var name = els.nameInput.value.trim();
+    if (!name) {
+      name = (role === "guest" ? "Guest" : "Host") + Math.floor(Math.random() * 9000 + 1000);
+      els.nameInput.value = name;
+    }
     var mySlug = U.slug(name);
 
     if (mySlug.length < 2) {
