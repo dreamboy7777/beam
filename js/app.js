@@ -10,6 +10,7 @@
     mesh: null,
     role: null,
     hostName: "",
+    worldwideUrl: "",
     tiles: new Map(),      // peerId | "self" -> ui handle
     messages: 0,
     unread: 0,
@@ -33,6 +34,7 @@
       "optSigReset", "optTurnUrls", "optTurnUser", "optTurnPass", "optTurnReset",
       "optTurnTest", "optTurnTestResult",
       "worldwideBtn", "worldwidePanel", "worldwideLink", "worldwideCopy", "worldwideOpen",
+      "soundGuide", "guideOpen", "guideTest", "guideCancel",
       "resetAppBtn", "toasts", "landingSettingsBtn"
     ].forEach(function (id) { els[id] = document.getElementById(id); });
   }
@@ -170,6 +172,21 @@
         U.toast("Select the link and copy it manually.", "warn");
       });
     });
+
+    els.worldwideOpen.addEventListener("click", function (e) {
+      e.preventDefault();
+      openWorldwideRoom();
+    });
+
+    els.guideOpen.addEventListener("click", openWorldwideRoom);
+    els.guideTest.addEventListener("click", function () {
+      var win = window.open("sound-test.html", "_blank");
+      if (win) win.opener = null;
+      else U.toast("Allow popups to open the sound test.", "warn");
+    });
+    els.guideCancel.addEventListener("click", function () {
+      els.soundGuide.hidden = true;
+    });
   }
 
   function startWorldwide() {
@@ -178,12 +195,21 @@
     // needed. It can't be embedded, so it opens in its own tab.
     var room = "beam" + Math.random().toString(36).slice(2, 10);
     var url = "https://talky.io/" + room;
+    state.worldwideUrl = url;
     els.worldwidePanel.hidden = false;
     els.worldwideLink.value = url;
     els.worldwideOpen.href = url;
+    // Make the sound steps impossible to miss before the share happens.
+    els.soundGuide.hidden = false;
+  }
+
+  function openWorldwideRoom() {
+    var url = state.worldwideUrl;
+    if (!url) return;
+    els.soundGuide.hidden = true;
 
     U.copy(url).then(function () {
-      U.toast("Worldwide link copied. Click Join Call, then Share screen — tick “Share tab audio” for sound.", "ok", null, 8000);
+      U.toast("Worldwide link copied. Join, then Share screen — pick a tab and turn on Share tab audio.", "ok", null, 9000);
     }).catch(function () {
       U.toast("Copy the worldwide link below.", "warn");
     });

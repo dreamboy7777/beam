@@ -1245,6 +1245,20 @@ body::after {
 }
 .loader strong { font-size: 17px; letter-spacing: -0.02em; margin-top: 8px; }
 .loader span:not(.spin) { font-size: 13px; color: var(--muted); }
+
+.guide-card {
+  width: min(560px, 100%);
+  background: #15171f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+}
+.guide-card h2 { margin: 0 0 14px; font-size: 22px; letter-spacing: -0.03em; }
+.guide-steps { margin: 0 0 14px; padding-left: 22px; display: grid; gap: 9px; font-size: 14px; line-height: 1.5; color: #d7d9e3; }
+.guide-steps b { color: #fff; }
+.guide-card .micro { text-align: left; margin: 0 0 12px; }
+.guide-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 16px 0 12px; }
 .spin {
   width: 42px; height: 42px;
   border-radius: 50%;

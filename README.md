@@ -148,11 +148,22 @@ peer-to-peer and fast.
 ### No-setup worldwide mode
 
 If you don't want to create a relay account, use **No-setup worldwide mode** on
-the landing page. It creates a private Talky room, copies the link and opens it.
-In the Talky tab click **Join Call**, then **Share screen**; your friend opens the
-copied link and clicks **Join Call**. Talky is a third-party hosted service with
-its own relays, so this path works across networks without any TURN setup. It
-opens in its own tab because Talky does not allow embedding.
+the landing page. It creates a private Talky room and shows a sound guide. In the
+Talky tab click **Join Call**, then **Share screen**, choose the **browser tab**
+that contains the video/music, and turn on **Share tab audio**.
+
+- Sharing a **Window** usually has no sound.
+- For a game or whole desktop, choose **Entire screen** and turn on **Share system
+  audio** (Windows). macOS needs a tab for reliable audio.
+- Never share the Talky tab itself. Make sure the shared tab is not muted.
+- Use the **sound test tab** in the guide to verify: play the tone, share that
+  tab with tab audio, and check your friend hears it. Then share the real tab.
+- On the viewer side, if the host tile shows **Mute**, click it to unmute, and
+  raise Talky's speaker volume.
+
+Talky is a third-party hosted service with its own relays, so this path works
+across networks without any TURN setup. It opens in its own tab because Talky
+does not allow embedding.
 
 ## Troubleshooting
 
