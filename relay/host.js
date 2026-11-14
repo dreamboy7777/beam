@@ -160,7 +160,7 @@
       alert("This browser can't record WebM. Use Chrome or Edge.");
       return;
     }
-    var options = { mimeType: mime, videoBitsPerSecond: 8000000, audioBitsPerSecond: 128000 };
+    var options = { mimeType: mime, videoBitsPerSecond: 6000000, audioBitsPerSecond: 128000 };
     try {
       recorder = new MediaRecorder(media, options);
     } catch (e) {
