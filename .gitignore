@@ -5,3 +5,5 @@ Thumbs.db
 cloudflared
 cloudflared.exe
 cloudflared.exe.part
+relay.log
+relay.err

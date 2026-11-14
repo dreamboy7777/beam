@@ -49,6 +49,7 @@
         <h1>Like Discord, but yours.</h1>
         <p>This mode sends the whole desktop and its audio through your own Beam relay. No accounts, no TURN, no third-party video service.</p>
         <ul>
+          <li><b>Send the link first</b>, have your friend open it, then share — lowest latency.</li>
           <li><b>Entire screen</b> + <b>Share system audio</b> = everything, with sound.</li>
           <li>Window sharing usually has no audio.</li>
           <li>The friend must click <b>Watch with sound</b> once.</li>
@@ -59,6 +60,23 @@
       </aside>
     </div>
     <footer>Beam Relay · your machine is the server · no recordings</footer>
+  </div>
+
+  <div class="modal-backdrop" id="soundModal" hidden>
+    <div class="modal">
+      <h2>No sound was captured</h2>
+      <p id="soundReason">The screen was shared without audio.</p>
+      <ol>
+        <li>Click <b>Try again</b>.</li>
+        <li>Choose <b>Entire screen</b> — not Window and not a tab.</li>
+        <li>Turn on <b>Share system audio</b> at the bottom of the picker.</li>
+      </ol>
+      <div class="row">
+        <button id="soundRetry">Try again</button>
+        <button id="soundCancel" class="ghost">Cancel</button>
+      </div>
+      <p class="micro">Windows Chrome/Edge supports system audio. If the checkbox is missing, update Chrome or check your sound output device.</p>
+    </div>
   </div>
 
   <script src="/relay/host.js"></script>

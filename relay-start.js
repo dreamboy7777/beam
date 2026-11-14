@@ -10,6 +10,7 @@ const http = require("http");
 const os = require("os");
 
 const PORT = Number(process.env.PORT) || 8790;
+const NO_OPEN = process.argv.indexOf("--no-open") !== -1;
 const isWin = process.platform === "win32";
 const CF_NAME = isWin ? "cloudflared.exe" : "cloudflared";
 const CF_PATH = path.join(__dirname, CF_NAME);
@@ -131,6 +132,17 @@ function waitForServer() {
   });
 }
 
+function isAlreadyRunning() {
+  return new Promise(function (resolve) {
+    const req = http.get({ host: "127.0.0.1", port: PORT, path: "/health", timeout: 800 }, function (res) {
+      res.resume();
+      resolve(res.statusCode === 200);
+    });
+    req.on("timeout", function () { req.destroy(); resolve(false); });
+    req.on("error", function () { resolve(false); });
+  });
+}
+
 function startServer() {
   log("Starting Beam Relay on http://localhost:" + PORT + " …");
   srv = spawn(process.execPath, [path.join(__dirname, "relay-server.js")], {
@@ -169,6 +181,11 @@ process.on("SIGTERM", shutdown);
   log("");
   log("  Beam Relay — Entire screen + system audio");
   log("  ----------------------------------------");
+  if (await isAlreadyRunning()) {
+    log("  Beam Relay is already running on http://localhost:" + PORT);
+    log("  Open that page and click Share Entire screen.");
+    return;
+  }
   const ok = await downloadCloudflared();
   if (ok) await startTunnel();
   startServer();
@@ -187,5 +204,5 @@ process.on("SIGTERM", shutdown);
   log("  On the host page: Share Entire screen → tick Share system audio → Copy link.");
   log("  Keep this window open while sharing. Press Ctrl+C to stop.");
   log("");
-  openBrowser("http://localhost:" + PORT);
+  if (!NO_OPEN) openBrowser("http://localhost:" + PORT);
 })();

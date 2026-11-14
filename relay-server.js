@@ -219,6 +219,11 @@ wss.on("connection", function (ws, req) {
   } else {
     room.viewers.add(ws);
     sendStatus(room, ws);
+    // Ask the host to restart its recorder so this viewer gets a fresh,
+    // live init segment instead of catching up from the start.
+    if (room.host && room.host.readyState === room.host.OPEN) {
+      sendJson(room.host, { type: "viewer-joined" });
+    }
     if (room.mime) {
       sendJson(ws, { type: "start", mime: room.mime, hasAudio: room.hasAudio });
       // A late viewer can usually start from the cached init segment.

@@ -22,7 +22,11 @@
     soundWarn: document.getElementById("soundWarn"),
     viewerLink: document.getElementById("viewerLink"),
     copyBtn: document.getElementById("copyBtn"),
-    publicHint: document.getElementById("publicHint")
+    publicHint: document.getElementById("publicHint"),
+    soundModal: document.getElementById("soundModal"),
+    soundReason: document.getElementById("soundReason"),
+    soundRetry: document.getElementById("soundRetry"),
+    soundCancel: document.getElementById("soundCancel")
   };
 
   var ws = null;
@@ -32,6 +36,8 @@
   var recorder = null;
   var sendChain = Promise.resolve();
   var sharing = false;
+  var shareGen = 0;
+  var viewerRestartTimer = null;
 
   function setNet(state, text) {
     els.netDot.className = "dot " + (state || "");
@@ -59,6 +65,9 @@
     ws.onopen = function () {
       wsReady = true;
       setNet("live", "Relay connected");
+      // If the relay socket blipped while we were sharing, restart the recorder
+      // with a fresh init segment instead of dropping the screen share.
+      if (sharing && stream) restartRecorder();
     };
 
     ws.onmessage = function (event) {
@@ -66,6 +75,12 @@
       var msg;
       try { msg = JSON.parse(event.data); } catch (e) { return; }
       if (msg.type === "ready" && msg.publicUrl) setViewerLink(msg.publicUrl);
+      if (msg.type === "viewer-joined" && sharing && stream) {
+        clearTimeout(viewerRestartTimer);
+        viewerRestartTimer = setTimeout(function () {
+          if (sharing && stream) restartRecorder();
+        }, 350);
+      }
       if (msg.type === "viewers") {
         els.viewerBadge.textContent = "Viewers: " + (msg.count || 0);
         if (msg.count > 0 && sharing) els.viewerBadge.classList.add("ok");
@@ -75,8 +90,7 @@
 
     ws.onclose = function () {
       wsReady = false;
-      setNet("off", "Relay disconnected");
-      if (sharing) stopShare();
+      setNet("off", sharing ? "Relay reconnecting — still capturing" : "Relay disconnected");
       scheduleReconnect();
     };
 
@@ -154,19 +168,50 @@
     return combined;
   }
 
-  function startRecorder(media) {
+  function showSoundModal(surface) {
+    var reason;
+    if (surface === "window") {
+      reason = "You shared a Window. Window sharing cannot capture system audio. Share Entire screen instead.";
+    } else if (surface === "browser") {
+      reason = "You shared a tab without tab audio. Turn on Share tab audio, or share Entire screen with system audio.";
+    } else {
+      reason = "Entire screen was selected, but Share system audio was off. Tick it at the bottom of the picker.";
+    }
+    els.soundReason.textContent = reason;
+    els.soundModal.hidden = false;
+  }
+
+  function restartRecorder() {
+    if (!stream) return;
+    var old = recorder;
+    recorder = null;
+    if (old && old.state !== "inactive") {
+      old._restarting = true;
+      try { old.stop(); } catch (e) {}
+    }
+    // Drop any chunks queued from the old generation.
+    shareGen += 1;
+    sendChain = Promise.resolve();
+    startRecorder(stream, true);
+  }
+
+  function startRecorder(media, restarting) {
     var mime = pickMime();
     if (!mime) {
       alert("This browser can't record WebM. Use Chrome or Edge.");
       return;
     }
-    var options = { mimeType: mime, videoBitsPerSecond: 6000000, audioBitsPerSecond: 128000 };
+    var myGen = shareGen + 1;
+    shareGen = myGen;
+    var options = { mimeType: mime, videoBitsPerSecond: 3000000, audioBitsPerSecond: 96000 };
+    var rec;
     try {
-      recorder = new MediaRecorder(media, options);
+      rec = new MediaRecorder(media, options);
     } catch (e) {
-      try { recorder = new MediaRecorder(media, { mimeType: mime }); }
+      try { rec = new MediaRecorder(media, { mimeType: mime }); }
       catch (err) { alert("Could not start the screen recorder: " + (err.message || err)); return; }
     }
+    recorder = rec;
 
     var hasAudio = media.getAudioTracks().length > 0;
     setSound(hasAudio);
@@ -174,15 +219,19 @@
     els.shareBtn.hidden = true;
     els.stopBtn.hidden = false;
     els.stageEmpty.hidden = true;
-    els.viewerBadge.textContent = "Viewers: 0";
-    els.viewerBadge.classList.remove("ok");
+    if (!restarting) {
+      els.viewerBadge.textContent = "Viewers: 0";
+      els.viewerBadge.classList.remove("ok");
+    }
 
     sendJson({ type: "start", mime: mime, hasAudio: hasAudio });
 
-    recorder.ondataavailable = function (event) {
+    rec.ondataavailable = function (event) {
       if (!event.data || !event.data.size) return;
+      if (myGen !== shareGen) return;
       sendChain = sendChain.then(function () {
         return event.data.arrayBuffer().then(function (buf) {
+          if (myGen !== shareGen) return;
           if (ws && ws.readyState === WebSocket.OPEN) {
             try { ws.send(buf); } catch (e) {}
           }
@@ -190,7 +239,9 @@
       }).catch(function () {});
     };
 
-    recorder.onstop = function () {
+    rec.onstop = function () {
+      if (rec._restarting) return;
+      if (myGen !== shareGen) return;
       sendChain = sendChain.then(function () {
         sendJson({ type: "stop" });
       });
@@ -199,15 +250,17 @@
       }
       if (stream === media) stream = null;
       sharing = false;
+      recorder = null;
       els.shareBtn.hidden = false;
       els.stopBtn.hidden = true;
-      els.stageEmpty.hidden = true;
+      els.stageEmpty.hidden = false;
+      els.stageEmpty.innerHTML = "<strong>Share stopped.</strong><br />Click <b>Share Entire screen</b> to start again.";
       els.preview.srcObject = null;
       setSound(false);
       els.soundWarn.classList.remove("on");
     };
 
-    recorder.start(250);
+    rec.start(250);
   }
 
   function share() {
@@ -223,8 +276,8 @@
       var constraints = {
         video: {
           frameRate: { ideal: 30, max: 30 },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
           cursor: "motion"
         },
         audio: true,
@@ -238,18 +291,33 @@
     }
 
     mediaPromise.then(function (media) {
+      var videoTrack = media.getVideoTracks()[0];
+      var surface = "";
+      try { surface = videoTrack && videoTrack.getSettings ? videoTrack.getSettings().displaySurface : ""; } catch (e) {}
+      if (videoTrack) {
+        // Keep text legible when bandwidth dips.
+        try { videoTrack.contentHint = "detail"; } catch (e) {}
+      }
+
+      if (!testMode && media.getAudioTracks().length === 0) {
+        // Refuse a silent share instead of letting them talk into the void.
+        media.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+        els.preview.srcObject = null;
+        showSoundModal(surface);
+        return;
+      }
+
       stream = media;
       els.preview.srcObject = media;
       els.preview.muted = true;
       els.preview.play().catch(function () {});
 
-      var videoTrack = media.getVideoTracks()[0];
       if (videoTrack) {
         videoTrack.addEventListener("ended", function () {
           if (sharing) stopShare();
         });
       }
-      startRecorder(media);
+      startRecorder(media, false);
     }).catch(function (err) {
       var name = err && err.name;
       if (name === "NotAllowedError" || name === "AbortError") {
@@ -296,6 +364,13 @@
   els.stopBtn.addEventListener("click", stopShare);
   els.copyBtn.addEventListener("click", copyLink);
   els.viewerLink.addEventListener("focus", function () { els.viewerLink.select(); });
+  els.soundRetry.addEventListener("click", function () {
+    els.soundModal.hidden = true;
+    share();
+  });
+  els.soundCancel.addEventListener("click", function () {
+    els.soundModal.hidden = true;
+  });
 
   window.addEventListener("beforeunload", function () {
     sendJson({ type: "stop" });

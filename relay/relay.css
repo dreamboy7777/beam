@@ -128,4 +128,25 @@ p { color: var(--muted); line-height: 1.6; font-size: 14px; margin: 0; }
 .badge.bad { color: var(--danger); border-color: rgba(255, 93, 108, .3); }
 ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: 13px; line-height: 1.7; }
 code { color: #cfd3e2; }
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(4, 5, 9, 0.72);
+  backdrop-filter: blur(8px);
+}
+.modal {
+  width: min(560px, 100%);
+  background: #15171f;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+}
+.modal h2 { margin: 0 0 8px; font-size: 22px; letter-spacing: -.03em; }
+.modal p { margin-bottom: 10px; }
+.modal ol { margin: 0 0 14px; padding-left: 20px; color: var(--muted); font-size: 13px; line-height: 1.7; }
 footer { margin-top: 22px; color: #6d7285; font-size: 12px; text-align: center; }
