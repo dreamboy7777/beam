@@ -207,7 +207,7 @@
       els.soundWarn.classList.remove("on");
     };
 
-    recorder.start(120);
+    recorder.start(250);
   }
 
   function share() {
